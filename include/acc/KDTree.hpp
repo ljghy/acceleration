@@ -28,13 +28,13 @@ template <typename VertexType> class KDTree {
 public:
   ~KDTree();
 
-  void construct(const VertexListType &vertices);
+  void construct(VertexListType &vertices);
   void free();
 
   VertexType *nearestNeighbor(Eigen::Vector3d q) const;
 
 private:
-  static KDNodeType *construct(const VertexListType &vertices, int cutDim,
+  static KDNodeType *construct(VertexListType &vertices, int cutDim,
                                std::vector<size_t>::iterator first,
                                std::vector<size_t>::iterator last);
   static void free(KDNodeType *);
@@ -49,7 +49,7 @@ private:
 };
 
 template <typename VertexType>
-inline void KDTree<VertexType>::construct(const VertexListType &vertices) {
+inline void KDTree<VertexType>::construct(VertexListType &vertices) {
   std::vector<size_t> indexOrder(vertices.size());
   std::iota(indexOrder.begin(), indexOrder.end(), 0u);
   m_root = construct(vertices, 0, indexOrder.begin(), indexOrder.end());
@@ -63,8 +63,7 @@ inline void KDTree<VertexType>::construct(const VertexListType &vertices) {
 }
 
 template <typename VertexType>
-inline auto KDTree<VertexType>::construct(const VertexListType &vertices,
-                                          int cutDim,
+inline auto KDTree<VertexType>::construct(VertexListType &vertices, int cutDim,
                                           std::vector<size_t>::iterator first,
                                           std::vector<size_t>::iterator last)
     -> KDNodeType * {

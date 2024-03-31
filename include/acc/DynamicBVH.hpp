@@ -18,7 +18,7 @@ public:
   DynamicBVH();
 
   void staticConstruct(const std::vector<BoundingBox> &aabbs,
-                       const std::vector<ObjectType *> objs);
+                       const std::vector<ObjectType *> &objs);
 
   void insert(const BoundingBox &aabb, ObjectType *obj);
   void reserve(size_t n);
@@ -27,13 +27,17 @@ public:
       const Eigen::Vector3d &p,
       const std::function<double(ObjectType *, Eigen::Vector3d)> &dist) const;
 
+  ObjectType *pointIntersection(
+      const Eigen::Vector3d &p,
+      const std::function<bool(ObjectType *, Eigen::Vector3d)> &inside) const;
+
   std::pair<ObjectType *, double>
   rayHit(const Ray &ray,
          const std::function<double(ObjectType *, const Ray &)> &hit) const;
 
 private:
   int staticConstruct(const std::vector<BoundingBox> &aabbs,
-                      const std::vector<ObjectType *> objs,
+                      const std::vector<ObjectType *> &objs,
                       std::vector<size_t>::iterator first,
                       std::vector<size_t>::iterator last, int parentIndex);
 
@@ -68,7 +72,7 @@ inline void DynamicBVH<ObjectType>::reserve(size_t n) {
 template <typename ObjectType>
 inline void
 DynamicBVH<ObjectType>::staticConstruct(const std::vector<BoundingBox> &aabbs,
-                                        const std::vector<ObjectType *> objs) {
+                                        const std::vector<ObjectType *> &objs) {
   reserve(aabbs.size());
 
   std::vector<size_t> indexOrder(aabbs.size());
@@ -80,9 +84,9 @@ DynamicBVH<ObjectType>::staticConstruct(const std::vector<BoundingBox> &aabbs,
 
 template <typename ObjectType>
 inline int DynamicBVH<ObjectType>::staticConstruct(
-    const std::vector<BoundingBox> &aabbs, const std::vector<ObjectType *> objs,
-    std::vector<size_t>::iterator first, std::vector<size_t>::iterator last,
-    int parentIndex) {
+    const std::vector<BoundingBox> &aabbs,
+    const std::vector<ObjectType *> &objs, std::vector<size_t>::iterator first,
+    std::vector<size_t>::iterator last, int parentIndex) {
   if (first == last)
     return nullIndex;
 
@@ -323,6 +327,41 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
   }
 
   return currentNearestObj;
+}
+
+template <typename ObjectType>
+inline ObjectType *DynamicBVH<ObjectType>::pointIntersection(
+    const Eigen::Vector3d &p,
+    const std::function<bool(ObjectType *, Eigen::Vector3d)> &inside) const {
+  ObjectType *obj = nullptr;
+
+  std::stack<int> s;
+  s.push(m_rootIndex);
+
+  while (!s.empty()) {
+    int nodeIndex = s.top();
+    s.pop();
+
+    if (nodeIndex == nullIndex)
+      continue;
+
+    const auto &node = m_nodes[nodeIndex];
+
+    if (!node.aabb.contains(p))
+      continue;
+
+    if (node.object == nullptr) {
+      s.push(node.child1);
+      s.push(node.child2);
+    } else {
+      if (inside(node.object, p)) {
+        obj = node.object;
+        break;
+      }
+    }
+  }
+
+  return obj;
 }
 
 template <typename ObjectType>

@@ -27,6 +27,10 @@ struct BoundingBox {
   double area() const;
   Eigen::Vector3d center() const;
 
+  bool contains(const Eigen::Vector3d &p) const {
+    return (p.array() >= lb.array()).all() && (p.array() <= ub.array()).all();
+  }
+
   double rayHit(const Ray &ray) const;
 };
 

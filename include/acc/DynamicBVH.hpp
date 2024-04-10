@@ -38,8 +38,9 @@ public:
                        OutputIt) const;
 
   std::pair<ObjectType *, real_t>
-  rayHit(const Ray &ray,
-         const std::function<real_t(ObjectType *, const Ray &)> &hit) const;
+  rayHit(const vec3_t &o, const vec3_t &d,
+         const std::function<real_t(ObjectType *, const vec3_t &o,
+                                    const vec3_t &d)> &hit) const;
 
 private:
   int staticConstruct(const std::vector<BoundingBox> &aabbs,
@@ -405,8 +406,9 @@ inline void DynamicBVH<ObjectType>::pointIntersectionAll(
 
 template <typename ObjectType>
 inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
-    const Ray &ray,
-    const std::function<real_t(ObjectType *, const Ray &)> &hit) const {
+    const vec3_t &o, const vec3_t &d,
+    const std::function<real_t(ObjectType *, const vec3_t &o,
+                               const vec3_t &d, )> &hit) const {
   real_t minT = std::numeric_limits<real_t>::max();
 
   ObjectType *hitObj = nullptr;
@@ -424,8 +426,8 @@ inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
     const auto &node = m_nodes[nodeIndex];
 
     if (node.object == nullptr) {
-      real_t t1 = m_nodes[node.child1].aabb.rayHit(ray);
-      real_t t2 = m_nodes[node.child2].aabb.rayHit(ray);
+      real_t t1 = m_nodes[node.child1].aabb.rayHit(o, d);
+      real_t t2 = m_nodes[node.child2].aabb.rayHit(o, d);
 
       if (t1 < t2) {
         if (t2 < std::numeric_limits<real_t>::max())
@@ -439,7 +441,7 @@ inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
           s.push(node.child2);
       }
     } else {
-      real_t t = hit(node.object, ray);
+      real_t t = hit(node.object, o, d);
       if (t < minT) {
         minT = t;
         hitObj = node.object;

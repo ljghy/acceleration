@@ -4,7 +4,6 @@
 #include <limits>
 
 #include <acc/BoundingBox.hpp>
-#include <acc/Ray.hpp>
 
 namespace acc::tri {
 
@@ -91,14 +90,14 @@ inline real_t pointDistance(const vec3_t &a, const vec3_t &b, const vec3_t &c,
 }
 
 inline real_t rayHit(const vec3_t &a, const vec3_t &b, const vec3_t &c,
-                     const Ray &ray) {
-  vec3_t s = ray.orig - a;
+                     const vec3_t &o, const vec3_t &d) {
+  vec3_t s = o - a;
   vec3_t e1 = b - a;
   vec3_t e2 = c - a;
   vec3_t n = cross(e1, e2);
 
-  real_t k = -1.0 / dot(n, ray.dir);
-  vec3_t w = cross(s, ray.dir);
+  real_t k = -1.0 / dot(n, d);
+  vec3_t w = cross(s, d);
 
   real_t u = dot(w, e2) * k;
   real_t v = -dot(w, e1) * k;

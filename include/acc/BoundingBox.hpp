@@ -5,7 +5,6 @@
 #include <limits>
 
 #include <acc/Common.hpp>
-#include <acc/Ray.hpp>
 
 namespace acc {
 
@@ -31,7 +30,7 @@ struct BoundingBox {
 
   bool contains(const vec3_t &) const;
 
-  real_t rayHit(const Ray &ray) const;
+  real_t rayHit(const vec3_t &o, const vec3_t &d) const;
 };
 
 inline void BoundingBox::init() {
@@ -95,11 +94,10 @@ inline bool BoundingBox::contains(const vec3_t &p) const {
          (p[1] <= ub[1]) && (p[2] >= lb[2]) && (p[2] <= ub[2]);
 }
 
-inline real_t BoundingBox::rayHit(const Ray &ray) const {
+inline real_t BoundingBox::rayHit(const vec3_t &o, const vec3_t &d) const {
 
-  vec3_t invDir = inv(ray.dir), t1 = prod(invDir, lb - ray.orig),
-         t2 = prod(invDir, ub - ray.orig), minT = min(t1, t2),
-         maxT = max(t1, t2);
+  vec3_t invDir = inv(d), t1 = prod(invDir, lb - o), t2 = prod(invDir, ub - o),
+         minT = min(t1, t2), maxT = max(t1, t2);
 
   real_t maxMinT = max(minT), minMaxT = min(maxT);
 

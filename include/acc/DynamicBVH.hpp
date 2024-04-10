@@ -424,14 +424,14 @@ inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
       real_t t2 = m_nodes[node.child2].aabb.rayHit(o, d);
 
       if (t1 < t2) {
-        if (t2 < std::numeric_limits<real_t>::max())
+        if (t2 < minT)
           s.push(node.child2);
-        if (t1 < std::numeric_limits<real_t>::max())
+        if (t1 < minT)
           s.push(node.child1);
       } else {
-        if (t1 < std::numeric_limits<real_t>::max())
+        if (t1 < minT)
           s.push(node.child1);
-        if (t2 < std::numeric_limits<real_t>::max())
+        if (t2 < minT)
           s.push(node.child2);
       }
     } else {

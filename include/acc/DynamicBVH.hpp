@@ -1,7 +1,6 @@
 #ifndef ACC_DYNAMIC_BVH_HPP_
 #define ACC_DYNAMIC_BVH_HPP_
 
-#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -17,8 +16,10 @@ template <typename ObjectType> class DynamicBVH {
 public:
   DynamicBVH();
 
-  void staticConstruct(const std::vector<BoundingBox> &aabbs,
-                       const std::function<ObjectType *(size_t)> &getObjPtr);
+  void staticConstruct(
+      size_t n,
+      const std::function<std::pair<BoundingBox, ObjectType *>(size_t)>
+          &getAABB);
 
   void insert(const BoundingBox &aabb, ObjectType *obj);
   void reserve(size_t n);
@@ -38,13 +39,14 @@ public:
 
   std::pair<ObjectType *, real_t>
   rayHit(const vec3_t &o, const vec3_t &d,
-         const std::function<real_t(ObjectType *)> &hit) const;
+         const std::function<real_t(ObjectType *)> &hit, real_t minT = {},
+         real_t maxT = std::numeric_limits<real_t>::max()) const;
 
 private:
-  int staticConstruct(const std::vector<BoundingBox> &aabbs,
-                      const std::function<ObjectType *(size_t)> &getObjPtr,
-                      std::vector<size_t>::iterator first,
-                      std::vector<size_t>::iterator last, int parentIndex);
+  int staticConstruct(
+      const std::vector<std::pair<BoundingBox, ObjectType *>> &aabbs,
+      const std::vector<vec3_t> &centers, std::vector<size_t>::iterator first,
+      std::vector<size_t>::iterator last, int parentIndex);
 
   real_t inheritedAreaDiff(BoundingBox aabb, int index);
 
@@ -76,50 +78,57 @@ inline void DynamicBVH<ObjectType>::reserve(size_t n) {
 
 template <typename ObjectType>
 inline void DynamicBVH<ObjectType>::staticConstruct(
-    const std::vector<BoundingBox> &aabbs,
-    const std::function<ObjectType *(size_t)> &getObjPtr) {
-  reserve(aabbs.size());
+    size_t n, const std::function<std::pair<BoundingBox, ObjectType *>(size_t)>
+                  &getAABB) {
+  reserve(n);
 
-  std::vector<size_t> indexOrder(aabbs.size());
+  std::vector<size_t> indexOrder(n);
   std::iota(indexOrder.begin(), indexOrder.end(), 0u);
 
-  staticConstruct(aabbs, getObjPtr, indexOrder.begin(), indexOrder.end(),
+  std::vector<std::pair<BoundingBox, ObjectType *>> aabbs(n);
+  std::transform(indexOrder.begin(), indexOrder.end(), aabbs.begin(), getAABB);
+
+  std::vector<vec3_t> centers(aabbs.size());
+  std::transform(aabbs.begin(), aabbs.end(), centers.begin(),
+                 [](const auto &pair) { return pair.first.center(); });
+
+  staticConstruct(aabbs, centers, indexOrder.begin(), indexOrder.end(),
                   nullIndex);
   m_rootIndex = 0;
 }
 
 template <typename ObjectType>
 inline int DynamicBVH<ObjectType>::staticConstruct(
-    const std::vector<BoundingBox> &aabbs,
-    const std::function<ObjectType *(size_t)> &getObjPtr,
-    std::vector<size_t>::iterator first, std::vector<size_t>::iterator last,
-    int parentIndex) {
+    const std::vector<std::pair<BoundingBox, ObjectType *>> &aabbs,
+    const std::vector<vec3_t> &centers, std::vector<size_t>::iterator first,
+    std::vector<size_t>::iterator last, int parentIndex) {
   if (first == last)
     return nullIndex;
 
   if (last - first == 1) {
-    m_nodes.push_back({aabbs[*first], getObjPtr(*first), parentIndex});
+    m_nodes.push_back({aabbs[*first].first, aabbs[*first].second, parentIndex});
     return static_cast<int>(m_nodes.size()) - 1;
   }
 
+  BoundingBox b = aabbs[*first].first;
+  for (auto i = first + 1; i != last; ++i)
+    b += aabbs[*i].first;
+
+  vec3_t extent = b.ub - b.lb;
+  int dim = (extent[0] > extent[1] && extent[0] > extent[2] ? 0
+             : extent[1] > extent[2]                        ? 1
+                                                            : 2);
+
   auto m = first + (last - first) / 2;
-  int dim = rand() % 3;
-  std::nth_element(first, m, last, [&aabbs, dim](size_t i, size_t j) {
-    return aabbs[i].lb[dim] + aabbs[i].ub[dim] <
-           aabbs[j].lb[dim] + aabbs[j].ub[dim];
+  std::nth_element(first, m, last, [&centers, dim](size_t i, size_t j) {
+    return centers[i][dim] < centers[j][dim];
   });
 
-  BoundingBox b = aabbs[*first];
-  for (auto i = first + 1; i != last; ++i)
-    b += aabbs[*i];
   m_nodes.push_back(BVHNode<ObjectType>{b, nullptr, parentIndex});
   int index = static_cast<int>(m_nodes.size()) - 1;
 
-  int child1 = staticConstruct(aabbs, getObjPtr, first, m, index);
-  int child2 = staticConstruct(aabbs, getObjPtr, m, last, index);
-
-  m_nodes[index].child1 = child1;
-  m_nodes[index].child2 = child2;
+  m_nodes[index].child1 = staticConstruct(aabbs, centers, first, m, index);
+  m_nodes[index].child2 = staticConstruct(aabbs, centers, m, last, index);
 
   return index;
 }
@@ -316,11 +325,15 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
       real_t d1 = m_nodes[node.child1].aabb.minDist(p);
       real_t d2 = m_nodes[node.child2].aabb.minDist(p);
       if (d1 < d2) {
-        s.push(node.child2);
-        s.push(node.child1);
+        if (d2 < minDist)
+          s.push(node.child2);
+        if (d1 < minDist)
+          s.push(node.child1);
       } else {
-        s.push(node.child1);
-        s.push(node.child2);
+        if (d1 < minDist)
+          s.push(node.child1);
+        if (d2 < minDist)
+          s.push(node.child2);
       }
     } else {
       real_t d = dist(node.object);
@@ -400,10 +413,11 @@ inline void DynamicBVH<ObjectType>::pointIntersectionAll(
 }
 
 template <typename ObjectType>
-inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
-    const vec3_t &o, const vec3_t &d,
-    const std::function<real_t(ObjectType *)> &hit) const {
-  real_t minT = std::numeric_limits<real_t>::max();
+inline std::pair<ObjectType *, real_t>
+DynamicBVH<ObjectType>::rayHit(const vec3_t &o, const vec3_t &d,
+                               const std::function<real_t(ObjectType *)> &hit,
+                               real_t minT, real_t maxT) const {
+  real_t currentMinT = maxT;
 
   ObjectType *hitObj = nullptr;
 
@@ -424,26 +438,26 @@ inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
       real_t t2 = m_nodes[node.child2].aabb.rayHit(o, d);
 
       if (t1 < t2) {
-        if (t2 < minT)
+        if (t2 < currentMinT)
           s.push(node.child2);
-        if (t1 < minT)
+        if (t1 < currentMinT)
           s.push(node.child1);
       } else {
-        if (t1 < minT)
+        if (t1 < currentMinT)
           s.push(node.child1);
-        if (t2 < minT)
+        if (t2 < currentMinT)
           s.push(node.child2);
       }
     } else {
       real_t t = hit(node.object);
-      if (t < minT) {
-        minT = t;
+      if (t < currentMinT && t > minT) {
+        currentMinT = t;
         hitObj = node.object;
       }
     }
   }
 
-  return {hitObj, minT};
+  return {hitObj, currentMinT};
 }
 
 } // namespace acc

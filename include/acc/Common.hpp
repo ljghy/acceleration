@@ -6,13 +6,11 @@
 #elif defined(ACC_BACKEND_GLM)
 #include <glm/glm.hpp>
 #include <type_traits>
-#elif defined(ACC_BACKEND_CUSTOM)
-#else // Fallback to Eigen
-#define ACC_BACKEND_EIGEN
-#include <Eigen/Dense>
 #endif
 
 namespace acc {
+
+#if defined(ACC_BACKEND_EIGEN)
 
 #if defined(ACC_PRECISION)
 using real_t = ACC_PRECISION;
@@ -20,7 +18,6 @@ using real_t = ACC_PRECISION;
 using real_t = double;
 #endif
 
-#if defined(ACC_BACKEND_EIGEN)
 using vec3_t = Eigen::Matrix<real_t, 3, 1>;
 
 inline vec3_t min(const vec3_t &a, const vec3_t &b) { return a.cwiseMin(b); }
@@ -45,7 +42,13 @@ inline vec3_t cross(const vec3_t &a, const vec3_t &b) { return a.cross(b); }
 
 #elif defined(ACC_BACKEND_GLM)
 
-template <bool B> struct glm_vec3 {
+#if defined(ACC_PRECISION)
+using real_t = ACC_PRECISION;
+#else
+using real_t = float;
+#endif
+
+template <bool IsDouble> struct glm_vec3 {
   using type = glm::vec3; // float
 };
 template <> struct glm_vec3<true> {

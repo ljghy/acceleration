@@ -23,6 +23,7 @@ struct BoundingBox {
   static BoundingBox merge(const BoundingBox &a, const BoundingBox &b);
   const BoundingBox operator+(const BoundingBox &other) const;
   BoundingBox &operator+=(const BoundingBox &other);
+  bool operator<=(const BoundingBox &other) const;
 
   void update(const vec3_t &);
   real_t area() const;
@@ -31,6 +32,8 @@ struct BoundingBox {
   bool contains(const vec3_t &) const;
 
   real_t rayHit(const vec3_t &o, const vec3_t &d) const;
+
+  void enlarge(real_t factor);
 };
 
 inline void BoundingBox::init() {
@@ -82,6 +85,12 @@ inline BoundingBox &BoundingBox::operator+=(const BoundingBox &other) {
   return *this;
 }
 
+bool BoundingBox::operator<=(const BoundingBox &other) const {
+  return (lb[0] >= other.lb[0]) && (lb[1] >= other.lb[1]) &&
+         (lb[2] >= other.lb[2]) && (ub[0] <= other.ub[0]) &&
+         (ub[1] <= other.ub[1]) && (ub[2] <= other.ub[2]);
+}
+
 inline real_t BoundingBox::area() const {
   vec3_t d = ub - lb;
   return d[0] * d[1] + d[1] * d[2] + d[2] * d[0];
@@ -104,6 +113,14 @@ inline real_t BoundingBox::rayHit(const vec3_t &o, const vec3_t &d) const {
   return ((minMaxT > real_t{}) && (maxMinT < minMaxT))
              ? std::max(real_t{}, maxMinT)
              : std::numeric_limits<real_t>::max();
+}
+
+inline void BoundingBox::enlarge(real_t factor) {
+  vec3_t center = real_t{0.5} * (lb + ub);
+  vec3_t halfExtent = real_t{0.5} * (ub - lb);
+  halfExtent *= factor;
+  lb = center - halfExtent;
+  ub = center + halfExtent;
 }
 
 } // namespace acc

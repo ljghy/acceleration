@@ -23,6 +23,7 @@ public:
 
   void insert(const BoundingBox &aabb, ObjectType *obj);
   void reserve(size_t n);
+  void clear();
 
   ObjectType *
   nearestObject(const vec3_t &p,
@@ -42,12 +43,10 @@ public:
          const std::function<real_t(ObjectType *)> &hit, real_t minT = {},
          real_t maxT = std::numeric_limits<real_t>::max()) const;
 
-private:
-  int staticConstruct(
-      const std::vector<std::pair<BoundingBox, ObjectType *>> &aabbs,
-      const std::vector<vec3_t> &centers, std::vector<size_t>::iterator first,
-      std::vector<size_t>::iterator last, int parentIndex);
+  void update(const std::function<BoundingBox(ObjectType *)> &getNewAABB,
+              real_t enlargementFactor = real_t{1.2});
 
+private:
   real_t inheritedAreaDiff(BoundingBox aabb, int index);
 
   void removeAndInsert(int index, const BoundingBox &newAABB);
@@ -76,10 +75,19 @@ inline void DynamicBVH<ObjectType>::reserve(size_t n) {
   m_nodes.reserve(2 * n);
 }
 
+template <typename ObjectType> inline void DynamicBVH<ObjectType>::clear() {
+  m_nodes.clear();
+  m_rootIndex = nullIndex;
+}
+
 template <typename ObjectType>
 inline void DynamicBVH<ObjectType>::staticConstruct(
     size_t n, const std::function<std::pair<BoundingBox, ObjectType *>(size_t)>
                   &getAABB) {
+  if (n == 0)
+    return;
+
+  clear();
   reserve(n);
 
   std::vector<size_t> indexOrder(n);
@@ -92,55 +100,69 @@ inline void DynamicBVH<ObjectType>::staticConstruct(
   std::transform(aabbs.begin(), aabbs.end(), centers.begin(),
                  [](const auto &pair) { return pair.first.center(); });
 
-  staticConstruct(aabbs, centers, indexOrder.begin(), indexOrder.end(),
-                  nullIndex);
-  m_rootIndex = 0;
-}
+  struct State {
+    std::vector<size_t>::iterator first;
+    std::vector<size_t>::iterator last;
+    int parentIndex;
+  };
 
-template <typename ObjectType>
-inline int DynamicBVH<ObjectType>::staticConstruct(
-    const std::vector<std::pair<BoundingBox, ObjectType *>> &aabbs,
-    const std::vector<vec3_t> &centers, std::vector<size_t>::iterator first,
-    std::vector<size_t>::iterator last, int parentIndex) {
-  if (first == last)
-    return nullIndex;
+  std::stack<State> s;
+  s.emplace(indexOrder.begin(), indexOrder.end(), nullIndex);
 
-  if (last - first == 1) {
-    m_nodes.push_back({aabbs[*first].first, aabbs[*first].second, parentIndex});
-    return static_cast<int>(m_nodes.size()) - 1;
+  while (!s.empty()) {
+    auto [first, last, parentIndex] = s.top();
+    s.pop();
+
+    if (first == last)
+      continue;
+    size_t n = std::distance(first, last);
+    if (n == 1) {
+      m_nodes.push_back(
+          {aabbs[*first].first, aabbs[*first].second, parentIndex});
+      if (parentIndex != nullIndex) {
+        (m_nodes[parentIndex].child1 == nullIndex
+             ? m_nodes[parentIndex].child1
+             : m_nodes[parentIndex].child2) =
+            static_cast<int>(m_nodes.size()) - 1;
+      }
+      continue;
+    }
+
+    BoundingBox b = aabbs[*first].first;
+    for (auto i = first + 1; i != last; ++i)
+      b += aabbs[*i].first;
+
+    vec3_t extent = b.ub - b.lb;
+    int dim = (extent[0] > extent[1] && extent[0] > extent[2] ? 0
+               : extent[1] > extent[2]                        ? 1
+                                                              : 2);
+
+    auto m = first + n / 2;
+    std::nth_element(first, m, last, [&centers, dim](size_t i, size_t j) {
+      return centers[i][dim] < centers[j][dim];
+    });
+
+    int index = static_cast<int>(m_nodes.size());
+    m_nodes.push_back(BVHNode<ObjectType>{b, nullptr, parentIndex});
+    if (parentIndex != nullIndex) {
+      (m_nodes[parentIndex].child1 == nullIndex ? m_nodes[parentIndex].child1
+                                                : m_nodes[parentIndex].child2) =
+          index;
+    }
+    s.emplace(first, m, index);
+    s.emplace(m, last, index);
   }
-
-  BoundingBox b = aabbs[*first].first;
-  for (auto i = first + 1; i != last; ++i)
-    b += aabbs[*i].first;
-
-  vec3_t extent = b.ub - b.lb;
-  int dim = (extent[0] > extent[1] && extent[0] > extent[2] ? 0
-             : extent[1] > extent[2]                        ? 1
-                                                            : 2);
-
-  auto m = first + (last - first) / 2;
-  std::nth_element(first, m, last, [&centers, dim](size_t i, size_t j) {
-    return centers[i][dim] < centers[j][dim];
-  });
-
-  m_nodes.push_back(BVHNode<ObjectType>{b, nullptr, parentIndex});
-  int index = static_cast<int>(m_nodes.size()) - 1;
-
-  m_nodes[index].child1 = staticConstruct(aabbs, centers, first, m, index);
-  m_nodes[index].child2 = staticConstruct(aabbs, centers, m, last, index);
-
-  return index;
+  m_rootIndex = 0;
 }
 
 template <typename ObjectType>
 inline real_t DynamicBVH<ObjectType>::inheritedAreaDiff(BoundingBox aabb,
                                                         int index) {
-  aabb = BoundingBox::merge(aabb, m_nodes[index].aabb);
+  aabb += m_nodes[index].aabb;
   real_t area = 0.f;
   index = m_nodes[index].parent;
   while (index != nullIndex) {
-    aabb = BoundingBox::merge(aabb, m_nodes[index].aabb);
+    aabb += m_nodes[index].aabb;
     area += aabb.area() - m_nodes[index].aabb.area();
     index = m_nodes[index].parent;
   }
@@ -168,17 +190,16 @@ DynamicBVH<ObjectType>::removeAndInsert(int index, const BoundingBox &newAABB) {
     return;
   }
   int parent = m_nodes[index].parent;
-  int theOtherChild =
-      (index == m_nodes[parent].child1 ? m_nodes[parent].child2
-                                       : m_nodes[parent].child1);
+  int sibling = (index == m_nodes[parent].child1 ? m_nodes[parent].child2
+                                                 : m_nodes[parent].child1);
   if (parent == m_rootIndex)
-    m_rootIndex = theOtherChild;
+    m_rootIndex = sibling;
   int grandparent = m_nodes[parent].parent;
-  m_nodes[theOtherChild].parent = grandparent;
+  m_nodes[sibling].parent = grandparent;
   if (grandparent != nullIndex)
     (parent == m_nodes[grandparent].child1 ? m_nodes[grandparent].child1
                                            : m_nodes[grandparent].child2) =
-        theOtherChild;
+        sibling;
   refit(grandparent);
 
   insertLeafAt(index, parent, newAABB, m_nodes[index].object);
@@ -458,6 +479,21 @@ DynamicBVH<ObjectType>::rayHit(const vec3_t &o, const vec3_t &d,
   }
 
   return {hitObj, currentMinT};
+}
+
+template <typename ObjectType>
+inline void DynamicBVH<ObjectType>::update(
+    const std::function<BoundingBox(ObjectType *)> &getNewAABB,
+    real_t enlargementFactor) {
+  for (size_t i = 0; i < m_nodes.size(); ++i) {
+    if (m_nodes[i].object == nullptr)
+      continue;
+    BoundingBox newAABB = getNewAABB(m_nodes[i].object);
+    if (!(newAABB <= m_nodes[i].aabb)) {
+      newAABB.enlarge(enlargementFactor);
+      removeAndInsert(i, newAABB);
+    }
+  }
 }
 
 } // namespace acc

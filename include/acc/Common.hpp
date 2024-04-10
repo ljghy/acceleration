@@ -5,6 +5,7 @@
 #include <Eigen/Dense>
 #elif defined(ACC_BACKEND_GLM)
 #include <glm/glm.hpp>
+#include <type_traits>
 #elif defined(ACC_BACKEND_CUSTOM)
 #else // Fallback to Eigen
 #define ACC_BACKEND_EIGEN
@@ -44,7 +45,13 @@ inline vec3_t cross(const vec3_t &a, const vec3_t &b) { return a.cross(b); }
 
 #elif defined(ACC_BACKEND_GLM)
 
-using vec3_t = glm::vector<real_t, 3>;
+template <bool B> struct glm_vec3 {
+  using type = glm::vec3; // float
+};
+template <> struct glm_vec3<true> {
+  using type = glm::dvec3; // double
+};
+using vec3_t = glm_vec3<std::is_same_v<real_t, double>>::type;
 
 inline vec3_t min(const vec3_t &a, const vec3_t &b) { return glm::min(a, b); }
 inline vec3_t min(const vec3_t &a, real_t b) { return glm::min(a, vec3_t{b}); }

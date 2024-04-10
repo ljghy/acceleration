@@ -407,8 +407,8 @@ inline void DynamicBVH<ObjectType>::pointIntersectionAll(
 template <typename ObjectType>
 inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
     const vec3_t &o, const vec3_t &d,
-    const std::function<real_t(ObjectType *, const vec3_t &o,
-                               const vec3_t &d, )> &hit) const {
+    const std::function<real_t(ObjectType *, const vec3_t &o, const vec3_t &d)>
+        &hit) const {
   real_t minT = std::numeric_limits<real_t>::max();
 
   ObjectType *hitObj = nullptr;

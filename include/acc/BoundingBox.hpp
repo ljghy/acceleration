@@ -1,106 +1,111 @@
 #ifndef ACC_BOUNDING_BOX_HPP_
 #define ACC_BOUNDING_BOX_HPP_
 
+#include <cmath>
 #include <limits>
 
-#include <Eigen/Core>
-
+#include <acc/Common.hpp>
 #include <acc/Ray.hpp>
 
 namespace acc {
 
 struct BoundingBox {
-  Eigen::Vector3d lb;
-  Eigen::Vector3d ub;
+  vec3_t lb;
+  vec3_t ub;
 
-  double minSqrDist(Eigen::Vector3d q) const;
-  double minDist(Eigen::Vector3d p) const;
+  void init();
 
-  BoundingBox trimLeft(int dim, double c) const;
-  BoundingBox trimRight(int dim, double c) const;
+  real_t minSqrDist(vec3_t) const;
+  real_t minDist(vec3_t) const;
+
+  BoundingBox trimLeft(int dim, real_t c) const;
+  BoundingBox trimRight(int dim, real_t c) const;
 
   static BoundingBox merge(const BoundingBox &a, const BoundingBox &b);
   const BoundingBox operator+(const BoundingBox &other) const;
   BoundingBox &operator+=(const BoundingBox &other);
 
-  void update(const Eigen::Vector3d &p);
-  double area() const;
-  Eigen::Vector3d center() const;
+  void update(const vec3_t &);
+  real_t area() const;
+  vec3_t center() const;
 
-  bool contains(const Eigen::Vector3d &p) const {
-    return (p.array() >= lb.array()).all() && (p.array() <= ub.array()).all();
-  }
+  bool contains(const vec3_t &) const;
 
-  double rayHit(const Ray &ray) const;
+  real_t rayHit(const Ray &ray) const;
 };
 
-inline double BoundingBox::minSqrDist(Eigen::Vector3d q) const {
-  Eigen::Vector3d center = (ub + lb) * 0.5;
-  Eigen::Vector3d halfExtent = ub - center;
-  q -= center;
-  return (q.cwiseAbs() - halfExtent).cwiseMax(0.0).squaredNorm();
+inline void BoundingBox::init() {
+  lb[0] = lb[1] = lb[2] = std::numeric_limits<real_t>::max();
+  ub[0] = ub[1] = ub[2] = std::numeric_limits<real_t>::lowest();
 }
 
-inline BoundingBox BoundingBox::trimLeft(int dim, double c) const {
+inline real_t BoundingBox::minSqrDist(vec3_t p) const {
+  vec3_t center = real_t{0.5} * (lb + ub);
+  vec3_t halfExtent = ub - center;
+  p -= center;
+  return sqrNorm(max(abs(p) - halfExtent, real_t{}));
+}
+
+inline real_t BoundingBox::minDist(vec3_t p) const {
+  return std::sqrt(minSqrDist(p));
+}
+
+inline BoundingBox BoundingBox::trimLeft(int dim, real_t c) const {
   auto m = ub;
-  m(dim) = c;
+  m[dim] = c;
   return {lb, m};
 }
 
-inline BoundingBox BoundingBox::trimRight(int dim, double c) const {
+inline BoundingBox BoundingBox::trimRight(int dim, real_t c) const {
   auto m = lb;
-  m(dim) = c;
+  m[dim] = c;
   return {m, ub};
 }
 
-inline void BoundingBox::update(const Eigen::Vector3d &p) {
-  lb = lb.cwiseMin(p);
-  ub = ub.cwiseMax(p);
+inline void BoundingBox::update(const vec3_t &p) {
+  lb = min(lb, p);
+  ub = max(ub, p);
 }
 
 inline BoundingBox BoundingBox::merge(const BoundingBox &a,
                                       const BoundingBox &b) {
-  return {a.lb.cwiseMin(b.lb), a.ub.cwiseMax(b.ub)};
+  return {min(a.lb, b.lb), max(a.ub, b.ub)};
 }
 
 inline const BoundingBox
 BoundingBox::operator+(const BoundingBox &other) const {
-  return {lb.cwiseMin(other.lb), ub.cwiseMax(other.ub)};
+  return {min(lb, other.lb), max(ub, other.ub)};
 }
 
 inline BoundingBox &BoundingBox::operator+=(const BoundingBox &other) {
-  lb = lb.cwiseMin(other.lb);
-  ub = ub.cwiseMax(other.ub);
+  lb = min(lb, other.lb);
+  ub = max(ub, other.ub);
   return *this;
 }
 
-inline double BoundingBox::area() const {
-  Eigen::Vector3d d = ub - lb;
-  return d(0) * d(1) + d(1) * d(2) + d(2) * d(0);
+inline real_t BoundingBox::area() const {
+  vec3_t d = ub - lb;
+  return d[0] * d[1] + d[1] * d[2] + d[2] * d[0];
 }
 
-inline double BoundingBox::minDist(Eigen::Vector3d p) const {
-  Eigen::Vector3d center = (lb + ub) * 0.5;
-  Eigen::Vector3d halfExtent = ub - center;
-  p -= center;
-  return (p.cwiseAbs() - halfExtent).cwiseMax(0.0).norm();
+inline vec3_t BoundingBox::center() const { return real_t{0.5} * (lb + ub); }
+
+inline bool BoundingBox::contains(const vec3_t &p) const {
+  return (p[0] >= lb[0]) && (p[0] <= ub[0]) && (p[1] >= lb[1]) &&
+         (p[1] <= ub[1]) && (p[2] >= lb[2]) && (p[2] <= ub[2]);
 }
 
-inline Eigen::Vector3d BoundingBox::center() const { return 0.5 * (lb + ub); }
+inline real_t BoundingBox::rayHit(const Ray &ray) const {
 
-inline double BoundingBox::rayHit(const Ray &ray) const {
+  vec3_t invDir = inv(ray.dir), t1 = prod(invDir, lb - ray.orig),
+         t2 = prod(invDir, ub - ray.orig), minT = min(t1, t2),
+         maxT = max(t1, t2);
 
-  Eigen::Vector3d invDir = 1.0 / ray.dir.array(),
-                  t1 = invDir.cwiseProduct(lb - ray.orig),
-                  t2 = invDir.cwiseProduct(ub - ray.orig),
-                  minT = t1.cwiseMin(t2), maxT = t1.cwiseMax(t2);
+  real_t maxMinT = max(minT), minMaxT = min(maxT);
 
-  double maxMinT = std::max(std::max(minT(0), minT(1)), minT(2)),
-         minMaxT = std::min(std::min(maxT(0), maxT(1)), maxT(2));
-
-  return ((minMaxT > 0.0) && (maxMinT < minMaxT))
-             ? std::max(0.0, maxMinT)
-             : std::numeric_limits<double>::max();
+  return ((minMaxT > real_t{}) && (maxMinT < minMaxT))
+             ? std::max(real_t{}, maxMinT)
+             : std::numeric_limits<real_t>::max();
 }
 
 } // namespace acc

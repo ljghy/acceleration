@@ -18,30 +18,36 @@ public:
   DynamicBVH();
 
   void staticConstruct(const std::vector<BoundingBox> &aabbs,
-                       const std::vector<ObjectType *> &objs);
+                       const std::function<ObjectType *(size_t)> &getObjPtr);
 
   void insert(const BoundingBox &aabb, ObjectType *obj);
   void reserve(size_t n);
 
-  ObjectType *nearestObject(
-      const Eigen::Vector3d &p,
-      const std::function<double(ObjectType *, Eigen::Vector3d)> &dist) const;
+  ObjectType *
+  nearestObject(const vec3_t &p,
+                const std::function<real_t(ObjectType *, vec3_t)> &dist) const;
 
-  ObjectType *pointIntersection(
-      const Eigen::Vector3d &p,
-      const std::function<bool(ObjectType *, Eigen::Vector3d)> &inside) const;
+  ObjectType *pointIntersectionFirst(
+      const vec3_t &p,
+      const std::function<bool(ObjectType *, vec3_t)> &inside) const;
 
-  std::pair<ObjectType *, double>
+  template <typename OutputIt>
+  void
+  pointIntersectionAll(const vec3_t &p,
+                       const std::function<void(ObjectType *, vec3_t)> &inside,
+                       OutputIt) const;
+
+  std::pair<ObjectType *, real_t>
   rayHit(const Ray &ray,
-         const std::function<double(ObjectType *, const Ray &)> &hit) const;
+         const std::function<real_t(ObjectType *, const Ray &)> &hit) const;
 
 private:
   int staticConstruct(const std::vector<BoundingBox> &aabbs,
-                      const std::vector<ObjectType *> &objs,
+                      const std::function<ObjectType *(size_t)> &getObjPtr,
                       std::vector<size_t>::iterator first,
                       std::vector<size_t>::iterator last, int parentIndex);
 
-  double inheritedAreaDiff(BoundingBox aabb, int index);
+  real_t inheritedAreaDiff(BoundingBox aabb, int index);
 
   void removeAndInsert(int index, const BoundingBox &newAABB);
   void insertLeafAt(int leafIndex, int newParent, const BoundingBox &aabb,
@@ -51,7 +57,7 @@ private:
 private:
   struct AreaCost {
     int index;
-    double cost;
+    real_t cost;
 
     bool operator<(const AreaCost &other) const { return cost < other.cost; }
   };
@@ -70,36 +76,38 @@ inline void DynamicBVH<ObjectType>::reserve(size_t n) {
 }
 
 template <typename ObjectType>
-inline void
-DynamicBVH<ObjectType>::staticConstruct(const std::vector<BoundingBox> &aabbs,
-                                        const std::vector<ObjectType *> &objs) {
+inline void DynamicBVH<ObjectType>::staticConstruct(
+    const std::vector<BoundingBox> &aabbs,
+    const std::function<ObjectType *(size_t)> &getObjPtr) {
   reserve(aabbs.size());
 
   std::vector<size_t> indexOrder(aabbs.size());
   std::iota(indexOrder.begin(), indexOrder.end(), 0u);
 
-  staticConstruct(aabbs, objs, indexOrder.begin(), indexOrder.end(), nullIndex);
+  staticConstruct(aabbs, getObjPtr, indexOrder.begin(), indexOrder.end(),
+                  nullIndex);
   m_rootIndex = 0;
 }
 
 template <typename ObjectType>
 inline int DynamicBVH<ObjectType>::staticConstruct(
     const std::vector<BoundingBox> &aabbs,
-    const std::vector<ObjectType *> &objs, std::vector<size_t>::iterator first,
-    std::vector<size_t>::iterator last, int parentIndex) {
+    const std::function<ObjectType *(size_t)> &getObjPtr,
+    std::vector<size_t>::iterator first, std::vector<size_t>::iterator last,
+    int parentIndex) {
   if (first == last)
     return nullIndex;
 
   if (last - first == 1) {
-    m_nodes.push_back({aabbs[*first], objs[*first], parentIndex});
+    m_nodes.push_back({aabbs[*first], getObjPtr(*first), parentIndex});
     return static_cast<int>(m_nodes.size()) - 1;
   }
 
   auto m = first + (last - first) / 2;
   int dim = rand() % 3;
   std::nth_element(first, m, last, [&aabbs, dim](size_t i, size_t j) {
-    return aabbs[i].lb(dim) + aabbs[i].ub(dim) <
-           aabbs[j].lb(dim) + aabbs[j].ub(dim);
+    return aabbs[i].lb[dim] + aabbs[i].ub[dim] <
+           aabbs[j].lb[dim] + aabbs[j].ub[dim];
   });
 
   BoundingBox b = aabbs[*first];
@@ -108,8 +116,8 @@ inline int DynamicBVH<ObjectType>::staticConstruct(
   m_nodes.push_back(BVHNode<ObjectType>{b, nullptr, parentIndex});
   int index = static_cast<int>(m_nodes.size()) - 1;
 
-  int child1 = staticConstruct(aabbs, objs, first, m, index);
-  int child2 = staticConstruct(aabbs, objs, m, last, index);
+  int child1 = staticConstruct(aabbs, getObjPtr, first, m, index);
+  int child2 = staticConstruct(aabbs, getObjPtr, m, last, index);
 
   m_nodes[index].child1 = child1;
   m_nodes[index].child2 = child2;
@@ -118,10 +126,10 @@ inline int DynamicBVH<ObjectType>::staticConstruct(
 }
 
 template <typename ObjectType>
-inline double DynamicBVH<ObjectType>::inheritedAreaDiff(BoundingBox aabb,
+inline real_t DynamicBVH<ObjectType>::inheritedAreaDiff(BoundingBox aabb,
                                                         int index) {
   aabb = BoundingBox::merge(aabb, m_nodes[index].aabb);
-  double area = 0.f;
+  real_t area = 0.f;
   index = m_nodes[index].parent;
   while (index != nullIndex) {
     aabb = BoundingBox::merge(aabb, m_nodes[index].aabb);
@@ -176,7 +184,7 @@ inline void DynamicBVH<ObjectType>::insertLeafAt(int leafIndex, int newParent,
   m_nodes[leafIndex].object = obj;
 
   int sibling = m_rootIndex;
-  double minCost = BoundingBox::merge(aabb, m_nodes[m_rootIndex].aabb).area();
+  real_t minCost = BoundingBox::merge(aabb, m_nodes[m_rootIndex].aabb).area();
   std::priority_queue<AreaCost> q;
   q.push({m_rootIndex, minCost});
 
@@ -194,7 +202,7 @@ inline void DynamicBVH<ObjectType>::insertLeafAt(int leafIndex, int newParent,
     if (m_nodes[curr.index].child1 == nullIndex) {
       continue;
     }
-    double lowerBound =
+    real_t lowerBound =
         aabb.area() + curr.cost - m_nodes[curr.index].aabb.area();
     if (lowerBound < minCost) {
       q.push({m_nodes[curr.index].child1, lowerBound});
@@ -234,7 +242,7 @@ inline void DynamicBVH<ObjectType>::insert(const BoundingBox &aabb,
   }
 
   int sibling = m_rootIndex;
-  double minCost = BoundingBox::merge(aabb, m_nodes[m_rootIndex].aabb).area();
+  real_t minCost = BoundingBox::merge(aabb, m_nodes[m_rootIndex].aabb).area();
   std::priority_queue<AreaCost> q;
   q.push({m_rootIndex, minCost});
 
@@ -252,7 +260,7 @@ inline void DynamicBVH<ObjectType>::insert(const BoundingBox &aabb,
     if (m_nodes[curr.index].child1 == nullIndex) {
       continue;
     }
-    double lowerBound =
+    real_t lowerBound =
         aabb.area() + curr.cost - m_nodes[curr.index].aabb.area();
     if (lowerBound < minCost) {
       q.push({m_nodes[curr.index].child1, lowerBound});
@@ -284,9 +292,9 @@ inline void DynamicBVH<ObjectType>::insert(const BoundingBox &aabb,
 
 template <typename ObjectType>
 inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
-    const Eigen::Vector3d &p,
-    const std::function<double(ObjectType *, Eigen::Vector3d)> &dist) const {
-  double minDist = std::numeric_limits<double>::max();
+    const vec3_t &p,
+    const std::function<real_t(ObjectType *, vec3_t)> &dist) const {
+  real_t minDist = std::numeric_limits<real_t>::max();
 
   ObjectType *currentNearestObj = nullptr;
 
@@ -302,13 +310,13 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
 
     const auto &node = m_nodes[nodeIndex];
 
-    double d = node.aabb.minDist(p);
+    real_t d = node.aabb.minDist(p);
     if (d >= minDist)
       continue;
 
     if (node.object == nullptr) {
-      double d1 = m_nodes[node.child1].aabb.minDist(p);
-      double d2 = m_nodes[node.child2].aabb.minDist(p);
+      real_t d1 = m_nodes[node.child1].aabb.minDist(p);
+      real_t d2 = m_nodes[node.child2].aabb.minDist(p);
       if (d1 < d2) {
         s.push(node.child2);
         s.push(node.child1);
@@ -317,7 +325,8 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
         s.push(node.child2);
       }
     } else {
-      double d = dist(node.object, p);
+      real_t d = dist(node.object, p);
+      // std::cerr << d << '\n';
 
       if (d < minDist) {
         minDist = d;
@@ -330,9 +339,9 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
 }
 
 template <typename ObjectType>
-inline ObjectType *DynamicBVH<ObjectType>::pointIntersection(
-    const Eigen::Vector3d &p,
-    const std::function<bool(ObjectType *, Eigen::Vector3d)> &inside) const {
+inline ObjectType *DynamicBVH<ObjectType>::pointIntersectionFirst(
+    const vec3_t &p,
+    const std::function<bool(ObjectType *, vec3_t)> &inside) const {
   ObjectType *obj = nullptr;
 
   std::stack<int> s;
@@ -365,10 +374,40 @@ inline ObjectType *DynamicBVH<ObjectType>::pointIntersection(
 }
 
 template <typename ObjectType>
-inline std::pair<ObjectType *, double> DynamicBVH<ObjectType>::rayHit(
+template <typename OutputIt>
+inline void DynamicBVH<ObjectType>::pointIntersectionAll(
+    const vec3_t &p, const std::function<void(ObjectType *, vec3_t)> &inside,
+    OutputIt first) const {
+  std::stack<int> s;
+  s.push(m_rootIndex);
+
+  while (!s.empty()) {
+    int nodeIndex = s.top();
+    s.pop();
+
+    if (nodeIndex == nullIndex)
+      continue;
+
+    const auto &node = m_nodes[nodeIndex];
+
+    if (!node.aabb.contains(p))
+      continue;
+
+    if (node.object == nullptr) {
+      s.push(node.child1);
+      s.push(node.child2);
+    } else {
+      if (inside(node.object, p))
+        *first++ = node.object;
+    }
+  }
+}
+
+template <typename ObjectType>
+inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
     const Ray &ray,
-    const std::function<double(ObjectType *, const Ray &)> &hit) const {
-  double minT = std::numeric_limits<double>::max();
+    const std::function<real_t(ObjectType *, const Ray &)> &hit) const {
+  real_t minT = std::numeric_limits<real_t>::max();
 
   ObjectType *hitObj = nullptr;
 
@@ -385,22 +424,22 @@ inline std::pair<ObjectType *, double> DynamicBVH<ObjectType>::rayHit(
     const auto &node = m_nodes[nodeIndex];
 
     if (node.object == nullptr) {
-      double t1 = m_nodes[node.child1].aabb.rayHit(ray);
-      double t2 = m_nodes[node.child2].aabb.rayHit(ray);
+      real_t t1 = m_nodes[node.child1].aabb.rayHit(ray);
+      real_t t2 = m_nodes[node.child2].aabb.rayHit(ray);
 
       if (t1 < t2) {
-        if (t2 < std::numeric_limits<double>::max())
+        if (t2 < std::numeric_limits<real_t>::max())
           s.push(node.child2);
-        if (t1 < std::numeric_limits<double>::max())
+        if (t1 < std::numeric_limits<real_t>::max())
           s.push(node.child1);
       } else {
-        if (t1 < std::numeric_limits<double>::max())
+        if (t1 < std::numeric_limits<real_t>::max())
           s.push(node.child1);
-        if (t2 < std::numeric_limits<double>::max())
+        if (t2 < std::numeric_limits<real_t>::max())
           s.push(node.child2);
       }
     } else {
-      double t = hit(node.object, ray);
+      real_t t = hit(node.object, ray);
       if (t < minT) {
         minT = t;
         hitObj = node.object;

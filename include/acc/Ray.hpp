@@ -1,13 +1,13 @@
 #ifndef ACC_RAY_HPP_
 #define ACC_RAY_HPP_
 
-#include <Eigen/Core>
+#include <acc/Common.hpp>
 
 namespace acc {
 
 struct Ray {
-  Eigen::Vector3d orig;
-  Eigen::Vector3d dir;
+  vec3_t orig;
+  vec3_t dir;
 };
 
 } // namespace acc

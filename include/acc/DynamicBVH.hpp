@@ -25,22 +25,20 @@ public:
 
   ObjectType *
   nearestObject(const vec3_t &p,
-                const std::function<real_t(ObjectType *, vec3_t)> &dist) const;
+                const std::function<real_t(ObjectType *)> &dist) const;
 
-  ObjectType *pointIntersectionFirst(
-      const vec3_t &p,
-      const std::function<bool(ObjectType *, vec3_t)> &inside) const;
+  ObjectType *
+  pointIntersectionFirst(const vec3_t &p,
+                         const std::function<bool(ObjectType *)> &inside) const;
 
   template <typename OutputIt>
-  void
-  pointIntersectionAll(const vec3_t &p,
-                       const std::function<void(ObjectType *, vec3_t)> &inside,
-                       OutputIt) const;
+  void pointIntersectionAll(const vec3_t &p,
+                            const std::function<void(ObjectType *)> &inside,
+                            OutputIt) const;
 
   std::pair<ObjectType *, real_t>
   rayHit(const vec3_t &o, const vec3_t &d,
-         const std::function<real_t(ObjectType *, const vec3_t &o,
-                                    const vec3_t &d)> &hit) const;
+         const std::function<real_t(ObjectType *)> &hit) const;
 
 private:
   int staticConstruct(const std::vector<BoundingBox> &aabbs,
@@ -293,8 +291,7 @@ inline void DynamicBVH<ObjectType>::insert(const BoundingBox &aabb,
 
 template <typename ObjectType>
 inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
-    const vec3_t &p,
-    const std::function<real_t(ObjectType *, vec3_t)> &dist) const {
+    const vec3_t &p, const std::function<real_t(ObjectType *)> &dist) const {
   real_t minDist = std::numeric_limits<real_t>::max();
 
   ObjectType *currentNearestObj = nullptr;
@@ -326,8 +323,7 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
         s.push(node.child2);
       }
     } else {
-      real_t d = dist(node.object, p);
-      // std::cerr << d << '\n';
+      real_t d = dist(node.object);
 
       if (d < minDist) {
         minDist = d;
@@ -341,8 +337,7 @@ inline ObjectType *DynamicBVH<ObjectType>::nearestObject(
 
 template <typename ObjectType>
 inline ObjectType *DynamicBVH<ObjectType>::pointIntersectionFirst(
-    const vec3_t &p,
-    const std::function<bool(ObjectType *, vec3_t)> &inside) const {
+    const vec3_t &p, const std::function<bool(ObjectType *)> &inside) const {
   ObjectType *obj = nullptr;
 
   std::stack<int> s;
@@ -364,7 +359,7 @@ inline ObjectType *DynamicBVH<ObjectType>::pointIntersectionFirst(
       s.push(node.child1);
       s.push(node.child2);
     } else {
-      if (inside(node.object, p)) {
+      if (inside(node.object)) {
         obj = node.object;
         break;
       }
@@ -377,7 +372,7 @@ inline ObjectType *DynamicBVH<ObjectType>::pointIntersectionFirst(
 template <typename ObjectType>
 template <typename OutputIt>
 inline void DynamicBVH<ObjectType>::pointIntersectionAll(
-    const vec3_t &p, const std::function<void(ObjectType *, vec3_t)> &inside,
+    const vec3_t &p, const std::function<void(ObjectType *)> &inside,
     OutputIt first) const {
   std::stack<int> s;
   s.push(m_rootIndex);
@@ -398,7 +393,7 @@ inline void DynamicBVH<ObjectType>::pointIntersectionAll(
       s.push(node.child1);
       s.push(node.child2);
     } else {
-      if (inside(node.object, p))
+      if (inside(node.object))
         *first++ = node.object;
     }
   }
@@ -407,8 +402,7 @@ inline void DynamicBVH<ObjectType>::pointIntersectionAll(
 template <typename ObjectType>
 inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
     const vec3_t &o, const vec3_t &d,
-    const std::function<real_t(ObjectType *, const vec3_t &o, const vec3_t &d)>
-        &hit) const {
+    const std::function<real_t(ObjectType *)> &hit) const {
   real_t minT = std::numeric_limits<real_t>::max();
 
   ObjectType *hitObj = nullptr;
@@ -441,7 +435,7 @@ inline std::pair<ObjectType *, real_t> DynamicBVH<ObjectType>::rayHit(
           s.push(node.child2);
       }
     } else {
-      real_t t = hit(node.object, o, d);
+      real_t t = hit(node.object);
       if (t < minT) {
         minT = t;
         hitObj = node.object;

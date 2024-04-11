@@ -115,7 +115,7 @@ template <typename VertexType> inline KDTree<VertexType>::~KDTree() { free(); }
 template <typename VertexType>
 inline VertexType *KDTree<VertexType>::nearestNeighbor(vec3_t q) const {
   VertexType *nearestVert = nullptr;
-  real_t minSqrDist = std::numeric_limits<real_t>::max();
+  real_t minSqrDist = real_t_max;
 
   nearestNeighbor(m_root, q, nearestVert, minSqrDist, m_boundingBox);
   return nearestVert;

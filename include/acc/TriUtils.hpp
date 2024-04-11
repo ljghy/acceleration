@@ -7,8 +7,8 @@
 
 namespace acc::tri {
 
-inline BoundingBox boundingBox(const vec3_t &a, const vec3_t &b,
-                               const vec3_t &c) {
+inline ACC_HOST_DEVICE BoundingBox boundingBox(const vec3_t &a, const vec3_t &b,
+                                               const vec3_t &c) {
   BoundingBox aabb{a, a};
   aabb.update(b);
   aabb.update(c);
@@ -21,8 +21,10 @@ inline BoundingBox boundingBox(const vec3_t &a, const vec3_t &b,
   return aabb;
 }
 
-inline vec3_t barycentricCoords(const vec3_t &a, const vec3_t &b,
-                                const vec3_t &c, const vec3_t &p) {
+inline ACC_HOST_DEVICE vec3_t barycentricCoords(const vec3_t &a,
+                                                const vec3_t &b,
+                                                const vec3_t &c,
+                                                const vec3_t &p) {
   vec3_t e1 = b - a, e2 = c - a, s = p - a;
   real_t a11 = sqrNorm(e1), a12 = dot(e1, e2), a22 = sqrNorm(e2);
 
@@ -37,8 +39,8 @@ inline vec3_t barycentricCoords(const vec3_t &a, const vec3_t &b,
   return bc;
 }
 
-inline real_t pointDistance(const vec3_t &a, const vec3_t &b, const vec3_t &c,
-                            const vec3_t &p) {
+inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
+                                            const vec3_t &c, const vec3_t &p) {
   vec3_t ab = b - a;
   vec3_t ac = c - a;
   vec3_t ap = p - a;
@@ -89,8 +91,9 @@ inline real_t pointDistance(const vec3_t &a, const vec3_t &b, const vec3_t &c,
   return norm(ap - v * ab - w * ac);
 }
 
-inline real_t rayHit(const vec3_t &a, const vec3_t &b, const vec3_t &c,
-                     const vec3_t &o, const vec3_t &d) {
+inline ACC_HOST_DEVICE real_t rayHit(const vec3_t &a, const vec3_t &b,
+                                     const vec3_t &c, const vec3_t &o,
+                                     const vec3_t &d) {
   vec3_t s = o - a;
   vec3_t e1 = b - a;
   vec3_t e2 = c - a;
@@ -106,7 +109,7 @@ inline real_t rayHit(const vec3_t &a, const vec3_t &b, const vec3_t &c,
   if (u >= real_t{} && v >= real_t{} && u + v <= 1.0 && t >= real_t{})
     return t;
   else
-    return std::numeric_limits<real_t>::max();
+    return real_t_max;
 }
 
 } // namespace acc::tri

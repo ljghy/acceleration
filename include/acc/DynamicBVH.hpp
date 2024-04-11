@@ -35,10 +35,10 @@ public:
                             const std::function<bool(index_t)> &inside,
                             OutputIt) const;
 
-  std::pair<index_t, real_t>
-  rayHit(const vec3_t &o, const vec3_t &d,
-         const std::function<real_t(index_t)> &hit, real_t minT = {},
-         real_t maxT = std::numeric_limits<real_t>::max()) const;
+  std::pair<index_t, real_t> rayHit(const vec3_t &o, const vec3_t &d,
+                                    const std::function<real_t(index_t)> &hit,
+                                    real_t minT = {},
+                                    real_t maxT = real_t_max) const;
 
   void update(const std::function<BoundingBox(index_t)> &getNewAABB,
               real_t enlargementFactor = real_t{1.2});
@@ -302,7 +302,7 @@ inline void DynamicBVH::insert(const BoundingBox &aabb, index_t objId) {
 inline index_t
 DynamicBVH::nearestObject(const vec3_t &p,
                           const std::function<real_t(index_t)> &dist) const {
-  real_t minDist = std::numeric_limits<real_t>::max();
+  real_t minDist = real_t_max;
 
   index_t currentNearestObj = nullIndex;
 

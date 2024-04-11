@@ -15,10 +15,14 @@ class StaticBVH {
 public:
   StaticBVH(index_t n, const std::function<BoundingBox(index_t)> &getAABB);
 
-  std::pair<index_t, real_t>
-  rayHit(const vec3_t &o, const vec3_t &d,
-         const std::function<real_t(index_t)> &hit, real_t minT = {},
-         real_t maxT = std::numeric_limits<real_t>::max()) const;
+  index_t maxDepth() const;
+  index_t numNodes() const;
+  const StaticBVHNode *nodes() const;
+
+  std::pair<index_t, real_t> rayHit(const vec3_t &o, const vec3_t &d,
+                                    const std::function<real_t(index_t)> &hit,
+                                    real_t minT = {},
+                                    real_t maxT = real_t_max) const;
 
   std::pair<index_t, real_t>
   nearestObject(const vec3_t &p,
@@ -60,7 +64,7 @@ inline StaticBVH::StaticBVH(
   };
 
   std::stack<State> s;
-  s.emplace(indexOrder.begin(), indexOrder.end(), nullIndex);
+  s.push({indexOrder.begin(), indexOrder.end(), nullIndex});
 
   while (!s.empty()) {
     auto [first, last, p] = s.top();
@@ -101,10 +105,34 @@ inline StaticBVH::StaticBVH(
                                            : m_nodes[p].children[1]) = index;
     }
 
-    s.emplace(first, m, index);
-    s.emplace(m, last, index);
+    s.push({first, m, index});
+    s.push({m, last, index});
   }
 }
+
+inline index_t StaticBVH::maxDepth() const {
+  if (m_nodes.empty())
+    return index_t{};
+  index_t maxDepth = index_t{};
+  std::stack<std::pair<index_t, index_t>> s;
+  s.emplace(index_t{}, index_t{});
+  while (!s.empty()) {
+    auto [i, depth] = s.top();
+    s.pop();
+    const auto &node = m_nodes[i];
+    if (node.objId() == nullIndex) {
+      s.emplace(node.children[0], depth + 1);
+      s.emplace(node.children[1], depth + 1);
+    } else {
+      maxDepth = std::max(maxDepth, depth);
+    }
+  }
+  return maxDepth;
+}
+
+inline index_t StaticBVH::numNodes() const { return m_nodes.size(); }
+
+inline const StaticBVHNode *StaticBVH::nodes() const { return m_nodes.data(); }
 
 inline std::pair<index_t, real_t>
 StaticBVH::rayHit(const vec3_t &o, const vec3_t &d,
@@ -154,7 +182,7 @@ StaticBVH::rayHit(const vec3_t &o, const vec3_t &d,
 
 std::pair<index_t, real_t> inline StaticBVH::nearestObject(
     const vec3_t &p, const std::function<real_t(index_t)> &dist) const {
-  real_t currMinDist = std::numeric_limits<real_t>::max();
+  real_t currMinDist = real_t_max;
 
   if (m_nodes.empty())
     return {nullIndex, currMinDist};

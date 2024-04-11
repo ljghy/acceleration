@@ -1,9 +1,6 @@
 #ifndef ACC_BVH_NODE_HPP_
 #define ACC_BVH_NODE_HPP_
 
-#include <algorithm>
-#include <array>
-
 #include <acc/BoundingBox.hpp>
 
 namespace acc {

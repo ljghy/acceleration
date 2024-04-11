@@ -1,0 +1,25 @@
+#ifndef ACC_STATIC_BVH_NODE_HPP_
+#define ACC_STATIC_BVH_NODE_HPP_
+
+#include <acc/BoundingBox.hpp>
+
+namespace acc {
+
+struct StaticBVHNode {
+  BoundingBox aabb;
+  index_t children[2]{nullIndex, nullIndex};
+
+  StaticBVHNode(const BoundingBox &aabb)
+      : aabb(aabb), children{nullIndex, nullIndex} {}
+
+  StaticBVHNode(const BoundingBox &aabb, index_t objId)
+      : aabb(aabb), children{objId, nullIndex} {}
+
+  index_t objId() const {
+    return children[1] == nullIndex ? children[0] : nullIndex;
+  }
+};
+
+} // namespace acc
+
+#endif

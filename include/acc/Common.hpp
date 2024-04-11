@@ -1,6 +1,9 @@
 #ifndef ACC_COMMON_HPP_
 #define ACC_COMMON_HPP_
 
+#include <cstddef>
+#include <cstdint>
+
 #if defined(ACC_BACKEND_EIGEN)
 #include <Eigen/Dense>
 #elif defined(ACC_BACKEND_GLM)
@@ -9,6 +12,9 @@
 #endif
 
 namespace acc {
+
+using index_t = std::size_t;
+inline constexpr index_t nullIndex = static_cast<index_t>(-1);
 
 #if defined(ACC_BACKEND_EIGEN)
 

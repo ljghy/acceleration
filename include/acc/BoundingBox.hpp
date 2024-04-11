@@ -85,7 +85,7 @@ inline BoundingBox &BoundingBox::operator+=(const BoundingBox &other) {
   return *this;
 }
 
-bool BoundingBox::operator<=(const BoundingBox &other) const {
+inline bool BoundingBox::operator<=(const BoundingBox &other) const {
   return (lb[0] >= other.lb[0]) && (lb[1] >= other.lb[1]) &&
          (lb[2] >= other.lb[2]) && (ub[0] <= other.ub[0]) &&
          (ub[1] <= other.ub[1]) && (ub[2] <= other.ub[2]);

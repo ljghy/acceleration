@@ -5,9 +5,6 @@
 #include <cstdint>
 #include <limits>
 
-#define ACC_BACKEND_GLM_CUDA
-#include <cuda_runtime.h>
-
 #if defined(ACC_BACKEND_EIGEN)
 #include <Eigen/Dense>
 #elif defined(ACC_BACKEND_GLM) || defined(ACC_BACKEND_GLM_CUDA)

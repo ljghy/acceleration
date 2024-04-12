@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include <acc/Common.hpp>
+#include <acc/Vec3Op.hpp>
 
 namespace acc {
 

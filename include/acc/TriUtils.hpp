@@ -14,8 +14,8 @@ inline ACC_HOST_DEVICE BoundingBox boundingBox(const vec3_t &a, const vec3_t &b,
   aabb.update(c);
   for (int i = 0; i < 3; ++i) {
     if (aabb.lb[i] == aabb.ub[i]) {
-      aabb.lb[i] -= 1e-12;
-      aabb.ub[i] += 1e-12;
+      aabb.lb[i] -= real_t{1e-12};
+      aabb.ub[i] += real_t{1e-12};
     }
   }
   return aabb;
@@ -29,12 +29,12 @@ inline ACC_HOST_DEVICE vec3_t barycentricCoords(const vec3_t &a,
   real_t a11 = sqrNorm(e1), a12 = dot(e1, e2), a22 = sqrNorm(e2);
 
   real_t b1 = dot(s, e1), b2 = dot(s, e2);
-  real_t invDet = 1.0 / (a11 * a22 - a12 * a12);
+  real_t invDet = real_t{1.0} / (a11 * a22 - a12 * a12);
 
   vec3_t bc;
   bc[1] = (a22 * b1 - a12 * b2) * invDet;
   bc[2] = (-a12 * b1 + a11 * b2) * invDet;
-  bc[0] = 1.0 - bc[1] - bc[2];
+  bc[0] = real_t{1.0} - bc[1] - bc[2];
 
   return bc;
 }
@@ -85,7 +85,7 @@ inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
     return norm(bp - v * (c - b));
   }
 
-  real_t denom = 1.0 / (va + vb + vc);
+  real_t denom = real_t{1.0} / (va + vb + vc);
   real_t v = vb * denom;
   real_t w = vc * denom;
   return norm(ap - v * ab - w * ac);
@@ -99,14 +99,14 @@ inline ACC_HOST_DEVICE real_t rayHit(const vec3_t &a, const vec3_t &b,
   vec3_t e2 = c - a;
   vec3_t n = cross(e1, e2);
 
-  real_t k = -1.0 / dot(n, d);
+  real_t k = -real_t{1.0} / dot(n, d);
   vec3_t w = cross(s, d);
 
   real_t u = dot(w, e2) * k;
   real_t v = -dot(w, e1) * k;
   real_t t = dot(n, s) * k;
 
-  if (u >= real_t{} && v >= real_t{} && u + v <= 1.0 && t >= real_t{})
+  if (u >= real_t{} && v >= real_t{} && u + v <= real_t{1.0} && t >= real_t{})
     return t;
   else
     return real_t_max;

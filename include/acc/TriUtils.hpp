@@ -1,6 +1,7 @@
 #ifndef ACC_TRI_UTILS_HPP_
 #define ACC_TRI_UTILS_HPP_
 
+#include <cmath>
 #include <limits>
 
 #include <acc/BoundingBox.hpp>
@@ -12,10 +13,11 @@ inline ACC_HOST_DEVICE BoundingBox boundingBox(const vec3_t &a, const vec3_t &b,
   BoundingBox aabb{a, a};
   aabb.update(b);
   aabb.update(c);
+  constexpr real_t eps = real_t{1e-5};
   for (int i = 0; i < 3; ++i) {
-    if (aabb.lb[i] == aabb.ub[i]) {
-      aabb.lb[i] -= real_t{1e-12};
-      aabb.ub[i] += real_t{1e-12};
+    if (std::abs(aabb.lb[i] - aabb.ub[i]) < eps) {
+      aabb.lb[i] -= eps;
+      aabb.ub[i] += eps;
     }
   }
   return aabb;

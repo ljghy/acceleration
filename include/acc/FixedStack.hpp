@@ -20,10 +20,9 @@ private:
                                  std::is_trivially_copyable<T>::value)>::type;
 
 public:
-  ACC_HOST_DEVICE FixedStack() = default;
+  ACC_HOST_DEVICE FixedStack() {}
   ACC_HOST_DEVICE FixedStack(index_t n) { assert(n <= N); };
-
-  ACC_HOST_DEVICE ~FixedStack() = default;
+  ACC_HOST_DEVICE ~FixedStack() {}
 
   FixedStack(const FixedStack<T, N> &) = delete;
   FixedStack &operator=(const FixedStack<T, N> &) = delete;

@@ -14,7 +14,8 @@ public:
 
   using RayHitFunc = real_t (*)(void *, index_t, const vec3_t &,
                                 const vec3_t &);
-  using DiscardFunc = bool (*)(void *, index_t, const vec3_t &, const vec3_t &, real_t);
+  using DiscardFunc = bool (*)(void *, index_t, const vec3_t &, const vec3_t &,
+                               real_t);
 
   using PointIntersectionFunc = bool (*)(void *, index_t, const vec3_t &);
 
@@ -47,9 +48,18 @@ private:
 
 class StaticBVHDevice {
 public:
+  StaticBVHDevice() : m_maxDepth(0), m_numNodes(0), m_nodes(nullptr) {}
   StaticBVHDevice(index_t maxDepth, index_t numNodes,
-                  const StaticBVHNode *nodes)
-      : m_maxDepth(maxDepth), m_numNodes(numNodes) {
+                  const StaticBVHNode *nodes) {
+    fromHost(maxDepth, numNodes, nodes);
+  }
+
+  void fromHost(index_t maxDepth, index_t numNodes,
+                const StaticBVHNode *nodes) {
+    m_maxDepth = maxDepth;
+    m_numNodes = numNodes;
+    if (m_nodes)
+      cudaFree(m_nodes);
     cudaMalloc(&m_nodes, numNodes * sizeof(StaticBVHNode));
     cudaMemcpy(m_nodes, nodes, numNodes * sizeof(StaticBVHNode),
                cudaMemcpyHostToDevice);

@@ -13,7 +13,12 @@ namespace acc {
 
 class StaticBVH {
 public:
-  StaticBVH(index_t n, const std::function<BoundingBox(index_t)> &getAABB);
+  StaticBVH() = default;
+  StaticBVH(index_t n, const std::function<BoundingBox(index_t)> &getAABB) {
+    build(n, getAABB);
+  }
+
+  void build(index_t n, const std::function<BoundingBox(index_t)> &getAABB);
 
   index_t maxDepth() const;
   index_t numNodes() const;
@@ -41,11 +46,13 @@ private:
   std::vector<StaticBVHNode> m_nodes;
 };
 
-inline StaticBVH::StaticBVH(
-    index_t n, const std::function<BoundingBox(index_t)> &getAABB) {
+inline void
+StaticBVH::build(index_t n,
+                 const std::function<BoundingBox(index_t)> &getAABB) {
   if (n == 0)
     return;
 
+  m_nodes.clear();
   m_nodes.reserve(2 * n);
   std::vector<index_t> indexOrder(n);
   std::iota(indexOrder.begin(), indexOrder.end(), index_t{});

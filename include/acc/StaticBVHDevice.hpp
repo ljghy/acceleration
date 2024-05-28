@@ -1,6 +1,8 @@
 #ifndef ACC_STATIC_BVH_DEVICE_HPP_
 #define ACC_STATIC_BVH_DEVICE_HPP_
 
+#ifdef __CUDACC__
+
 #include <acc/FixedStack.hpp>
 #include <acc/StaticBVHNode.hpp>
 
@@ -257,5 +259,7 @@ StaticBVHDeviceView::nearestObject(const vec3_t &p, DistFunc dist,
 }
 
 } // namespace acc
+
+#endif
 
 #endif

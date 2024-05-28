@@ -26,6 +26,14 @@ public:
   index_t numNodes() const;
   const StaticBVHNode *nodes() const;
 
+  BoundingBox rootAABB() const {
+    if (!m_nodes.empty())
+      return m_nodes[0].aabb;
+    BoundingBox b;
+    b.init();
+    return b;
+  }
+
   std::pair<index_t, real_t> rayHit(const vec3_t &o, const vec3_t &d,
                                     const std::function<real_t(index_t)> &hit,
                                     real_t minT = {},

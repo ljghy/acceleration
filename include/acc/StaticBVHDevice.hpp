@@ -7,6 +7,9 @@
 namespace acc {
 
 class StaticBVHDeviceView {
+private:
+  using DefaultStackType = FixedStack<index_t, 64>;
+
 public:
   StaticBVHDeviceView(index_t maxDepth = 0,
                       const StaticBVHNode *nodes = nullptr)
@@ -21,23 +24,23 @@ public:
 
   using DistFunc = real_t (*)(void *, index_t, const vec3_t &);
 
-  template <typename StackType = FixedStack<index_t, 32>>
+  template <typename StackType = DefaultStackType>
   __device__ void rayHit(const vec3_t &o, const vec3_t &d, RayHitFunc hit,
                          void *userData, index_t *, real_t *, real_t minT = {},
                          real_t maxT = real_t_max) const;
 
-  template <typename StackType = FixedStack<index_t, 32>>
+  template <typename StackType = DefaultStackType>
   __device__ void rayHit(const vec3_t &o, const vec3_t &d, RayHitFunc hit,
                          DiscardFunc discard, void *userData, index_t *,
                          real_t *, real_t minT = {},
                          real_t maxT = real_t_max) const;
 
-  template <typename StackType = FixedStack<index_t, 32>>
+  template <typename StackType = DefaultStackType>
   __device__ void pointIntersectionFirst(const vec3_t &p,
                                          PointIntersectionFunc inside,
                                          void *userData, index_t *objId) const;
 
-  template <typename StackType = FixedStack<index_t, 32>>
+  template <typename StackType = DefaultStackType>
   __device__ void nearestObject(const vec3_t &p, DistFunc dist, void *userData,
                                 index_t *objId, real_t *d) const;
 

@@ -2,11 +2,13 @@
 #define ACC_STATIC_BVH_HPP_
 
 #include <algorithm>
+#include <bit>
 #include <functional>
 #include <numeric>
 #include <stack>
 #include <vector>
 
+#include <acc/MortonCode.hpp>
 #include <acc/StaticBVHNode.hpp>
 
 namespace acc {
@@ -43,8 +45,42 @@ public:
                             OutputIt out) const;
 
 private:
+  index_t buildRecursive(const std::vector<BoundingBox> &aabbs,
+                         const std::vector<MortonCode> &mortonCodes,
+                         index_t first, index_t last);
+
+  static index_t findSplit(const std::vector<MortonCode> &mortonCodes,
+                           index_t first, index_t last);
+
+private:
   std::vector<StaticBVHNode> m_nodes;
 };
+
+inline index_t StaticBVH::findSplit(const std::vector<MortonCode> &mortonCodes,
+                                    index_t first, index_t last) {
+  uint32_t firstCode = mortonCodes[first].code;
+  uint32_t lastCode = mortonCodes[last].code;
+  if (firstCode == lastCode)
+    return (first + last) / 2;
+
+  auto commonPrefix = std::countl_zero(firstCode ^ lastCode);
+  auto split = first;
+  index_t step = last - first;
+
+  do {
+    step = (step + 1) >> 1;
+    index_t newSplit = split + step;
+
+    if (newSplit < last) {
+      auto splitCode = mortonCodes[newSplit].code;
+      auto splitPrefix = std::countl_zero(firstCode ^ splitCode);
+      if (splitPrefix > commonPrefix)
+        split = newSplit;
+    }
+  } while (step > 1);
+
+  return split;
+}
 
 inline void
 StaticBVH::build(index_t n,
@@ -54,67 +90,46 @@ StaticBVH::build(index_t n,
 
   m_nodes.clear();
   m_nodes.reserve(2 * n);
-  std::vector<index_t> indexOrder(n);
-  std::iota(indexOrder.begin(), indexOrder.end(), index_t{});
 
   std::vector<BoundingBox> aabbs(n);
-  std::transform(indexOrder.begin(), indexOrder.end(), aabbs.begin(), getAABB);
-
-  std::vector<vec3_t> centers(n);
-  std::transform(aabbs.begin(), aabbs.end(), centers.begin(),
-                 [](const BoundingBox &aabb) { return aabb.center(); });
-
-  struct State {
-    std::vector<index_t>::iterator first;
-    std::vector<index_t>::iterator last;
-    index_t parentIndex;
-  };
-
-  std::stack<State> s;
-  s.push({indexOrder.begin(), indexOrder.end(), nullIndex});
-
-  while (!s.empty()) {
-    auto [first, last, p] = s.top();
-    s.pop();
-
-    auto n = std::distance(first, last);
-    auto i = *first;
-    if (n == 1) {
-      if (p != nullIndex) {
-        (m_nodes[p].children[0] == nullIndex ? m_nodes[p].children[0]
-                                             : m_nodes[p].children[1]) =
-            m_nodes.size();
-      }
-      m_nodes.emplace_back(aabbs[i], i);
-      continue;
-    }
-
-    BoundingBox b = aabbs[i];
-    for (auto it = first; it != last; ++it)
-      b += aabbs[*it];
-
-    vec3_t extent = b.ub - b.lb;
-    int dim = 0;
-    if (extent[1] > extent[0])
-      dim = 1;
-    if (extent[2] > extent[dim])
-      dim = 2;
-
-    auto m = first + n / 2;
-    std::nth_element(first, m, last, [&](index_t a, index_t b) {
-      return centers[a][dim] < centers[b][dim];
-    });
-
-    index_t index = m_nodes.size();
-    m_nodes.emplace_back(b);
-    if (p != nullIndex) {
-      (m_nodes[p].children[0] == nullIndex ? m_nodes[p].children[0]
-                                           : m_nodes[p].children[1]) = index;
-    }
-
-    s.push({first, m, index});
-    s.push({m, last, index});
+  BoundingBox rootAABB;
+  rootAABB.init();
+  for (index_t i = 0; i < n; ++i) {
+    aabbs[i] = getAABB(i);
+    rootAABB += aabbs[i];
   }
+
+  std::vector<MortonCode> mortonCodes;
+  mortonCodes.reserve(n);
+  for (index_t i = 0; i < n; ++i)
+    mortonCodes.emplace_back(i, prod(aabbs[i].center() - rootAABB.lb,
+                                     inv(rootAABB.ub - rootAABB.lb)));
+
+  std::sort(mortonCodes.begin(), mortonCodes.end());
+
+  m_nodes.emplace_back(rootAABB);
+  buildRecursive(aabbs, mortonCodes, 0, n - 1);
+}
+
+inline index_t
+StaticBVH::buildRecursive(const std::vector<BoundingBox> &aabbs,
+                          const std::vector<MortonCode> &mortonCodes,
+                          index_t first, index_t last) {
+  if (first == last) {
+    auto i = mortonCodes[first].index;
+    m_nodes.emplace_back(aabbs[i], i);
+  } else {
+    auto split = findSplit(mortonCodes, first, last);
+    auto child0 = buildRecursive(aabbs, mortonCodes, first, split);
+    auto child1 = buildRecursive(aabbs, mortonCodes, split + 1, last);
+    auto &node =
+        (first == 0 && last + 1 == aabbs.size())
+            ? m_nodes[0]
+            : m_nodes.emplace_back(m_nodes[child0].aabb + m_nodes[child1].aabb);
+    node.children[0] = child0;
+    node.children[1] = child1;
+  }
+  return m_nodes.size() - 1;
 }
 
 inline index_t StaticBVH::maxDepth() const {

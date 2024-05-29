@@ -2,7 +2,6 @@
 #define ACC_TRI_UTILS_HPP_
 
 #include <cmath>
-#include <limits>
 
 #include <acc/BoundingBox.hpp>
 

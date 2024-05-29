@@ -18,6 +18,8 @@ struct StaticBVHNode {
   ACC_HOST_DEVICE index_t objId() const {
     return children[1] == nullIndex ? children[0] : nullIndex;
   }
+
+  ACC_HOST_DEVICE bool isLeaf() const { return children[1] == nullIndex; }
 };
 
 } // namespace acc

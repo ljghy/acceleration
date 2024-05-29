@@ -10,8 +10,12 @@ namespace acc {
 
 template <typename T, index_t N> class FixedStack {
 private:
-  template <typename U, bool B> struct ValOrRef { using type = const U &; };
-  template <typename U> struct ValOrRef<U, true> { using type = U; };
+  template <typename U, bool B> struct ValOrRef {
+    using type = const U &;
+  };
+  template <typename U> struct ValOrRef<U, true> {
+    using type = U;
+  };
   using ValOrRefT =
       typename ValOrRef<T, (sizeof(T) <= sizeof(T *) * 2 &&
                             std::is_trivially_copyable<T>::value)>::type;

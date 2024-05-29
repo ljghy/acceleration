@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <bit>
 #include <functional>
-#include <numeric>
 #include <stack>
 #include <vector>
 

@@ -2,13 +2,12 @@
 #define ACC_DYNAMIC_BVH_HPP_
 
 #include <functional>
-#include <limits>
 #include <numeric>
 #include <queue>
 #include <stack>
 #include <vector>
 
-#include <acc/BVHNode.hpp>
+#include <acc/DynamicBVHNode.hpp>
 
 namespace acc {
 
@@ -16,8 +15,8 @@ class DynamicBVH {
 public:
   DynamicBVH();
 
-  void staticConstruct(index_t n,
-                       const std::function<BoundingBox(index_t)> &getAABB);
+  void staticBuild(index_t n,
+                   const std::function<BoundingBox(index_t)> &getAABB);
 
   void insert(const BoundingBox &aabb, index_t id);
   void reserve(index_t n);
@@ -59,7 +58,7 @@ private:
   };
 
 private:
-  std::vector<BVHNode> m_nodes;
+  std::vector<DynamicBVHNode> m_nodes;
   index_t m_rootIndex;
 };
 
@@ -72,8 +71,9 @@ inline void DynamicBVH::clear() {
   m_rootIndex = nullIndex;
 }
 
-inline void DynamicBVH::staticConstruct(
-    index_t n, const std::function<BoundingBox(index_t)> &getAABB) {
+inline void
+DynamicBVH::staticBuild(index_t n,
+                        const std::function<BoundingBox(index_t)> &getAABB) {
   if (n == 0)
     return;
 

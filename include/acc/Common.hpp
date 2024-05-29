@@ -2,7 +2,6 @@
 #define ACC_COMMON_HPP_
 
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 
 #if defined(ACC_BACKEND_GLM_CUDA)

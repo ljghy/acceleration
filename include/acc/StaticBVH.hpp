@@ -2,10 +2,34 @@
 #define ACC_STATIC_BVH_HPP_
 
 #include <algorithm>
-#include <bit>
 #include <functional>
 #include <stack>
 #include <vector>
+
+#if __cpp_lib_bitops
+#include <bit>
+namespace acc {
+template <typename T> inline constexpr int clz(T x) {
+  return std::countl_zero(x);
+}
+} // namespace acc
+#else
+namespace acc {
+template <typename T> inline constexpr int clz(T x) {
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_clz(x);
+#else
+  int count = sizeof(T) * 8;
+  while (x) {
+    x >>= 1;
+    --count;
+  }
+  return count;
+#endif
+}
+} // namespace acc
+
+#endif
 
 #include <acc/MortonCode.hpp>
 #include <acc/StaticBVHNode.hpp>
@@ -70,7 +94,7 @@ inline index_t StaticBVH::findSplit(const std::vector<MortonCode> &mortonCodes,
   if (firstCode == lastCode)
     return (first + last) / 2;
 
-  auto commonPrefix = std::countl_zero(firstCode ^ lastCode);
+  auto commonPrefix = clz(firstCode ^ lastCode);
   auto split = first;
   index_t step = last - first;
 
@@ -80,7 +104,7 @@ inline index_t StaticBVH::findSplit(const std::vector<MortonCode> &mortonCodes,
 
     if (newSplit < last) {
       auto splitCode = mortonCodes[newSplit].code;
-      auto splitPrefix = std::countl_zero(firstCode ^ splitCode);
+      auto splitPrefix = clz(firstCode ^ splitCode);
       if (splitPrefix > commonPrefix)
         split = newSplit;
     }

@@ -5,14 +5,14 @@ project(
     VERSION 1.0.0
     LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-
 add_library(acceleration INTERFACE)
 
 target_include_directories(
     acceleration
     INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
               $<INSTALL_INTERFACE:include/acceleration-${PROJECT_VERSION}>)
+
+target_compile_features(acceleration INTERFACE cxx_std_17)
 
 install(
     TARGETS acceleration

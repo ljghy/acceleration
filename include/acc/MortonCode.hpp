@@ -11,11 +11,13 @@ struct MortonCode {
   uint32_t code;
   index_t index;
 
-  MortonCode(const index_t i, vec3_t p) : index(i) {
-    p = min(max(p * real_t{1024}, real_t{0}), real_t{1023});
-    uint32_t x = expandBits(static_cast<uint32_t>(p[0]));
-    uint32_t y = expandBits(static_cast<uint32_t>(p[1]));
-    uint32_t z = expandBits(static_cast<uint32_t>(p[2]));
+  MortonCode() = default;
+
+  MortonCode(const index_t i, const vec3_t &p) : index(i) {
+    const vec3_t q = min(max(p * real_t{1024}, real_t{0}), real_t{1023});
+    uint32_t x = expandBits(static_cast<uint32_t>(q[0]));
+    uint32_t y = expandBits(static_cast<uint32_t>(q[1]));
+    uint32_t z = expandBits(static_cast<uint32_t>(q[2]));
     code = x * 4 + y * 2 + z;
   }
 

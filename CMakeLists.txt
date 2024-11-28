@@ -2,17 +2,45 @@ cmake_minimum_required(VERSION 3.14)
 
 project(
     acceleration
-    VERSION 1.0.0
+    VERSION 0.0.1
     LANGUAGES CXX)
 
 add_library(acceleration INTERFACE)
+add_library(acceleration::acceleration ALIAS acceleration)
 
 target_include_directories(
     acceleration
     INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
               $<INSTALL_INTERFACE:include/acceleration-${PROJECT_VERSION}>)
 
-target_compile_features(acceleration INTERFACE cxx_std_17)
+target_compile_features(acceleration INTERFACE cxx_std_20)
+
+option(ACCELERATION_DONT_PARALLELIZE "Disable parallelization" OFF)
+
+set(ACCELERATION_COMPILE_DEFINITIONS "")
+
+if(ACCELERATION_DONT_PARALLELIZE)
+    list(APPEND ACCELERATION_COMPILE_DEFINITIONS ACC_DONT_PARALLELIZE)
+endif()
+
+if(MSVC)
+    list(APPEND ACCELERATION_COMPILE_DEFINITIONS NOMINMAX)
+endif()
+
+target_compile_definitions(acceleration
+                           INTERFACE ${ACCELERATION_COMPILE_DEFINITIONS})
+
+get_directory_property(HAS_PARENT PARENT_DIRECTORY)
+if(HAS_PARENT)
+    set(ACCELERATION_IS_TOPLEVEL FALSE)
+else()
+    set(ACCELERATION_IS_TOPLEVEL TRUE)
+endif()
+
+option(ACCELERATION_BUILD_EXAMPLES "Build examples" ${ACCELERATION_IS_TOPLEVEL})
+if(ACCELERATION_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 install(
     TARGETS acceleration

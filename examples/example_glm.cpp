@@ -25,11 +25,10 @@ int main() {
   std::for_each(points.begin(), points.end(), [](auto &p) { p = randVec3(); });
 
   {
-
     auto start = std::chrono::high_resolution_clock::now();
 
     bvh.build(nPoints, [&](int i) {
-      return acc::BoundingBox(points[i] - 1e-5f, points[i] + 1e-5f);
+      return acc::BoundingBox{points[i] - 1e-5f, points[i] + 1e-5f};
     });
 
     auto end = std::chrono::high_resolution_clock::now();

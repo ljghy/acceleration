@@ -24,7 +24,7 @@ public:
   ACC_HOST_DEVICE T top() const { return m_data[m_top - 1]; }
 
   ACC_HOST_DEVICE bool empty() const { return m_top == 0; }
-
+  ACC_HOST_DEVICE bool full() const { return m_top == N; }
   ACC_HOST_DEVICE int size() const { return m_top; }
 
   ACC_HOST_DEVICE void push(const T value) {

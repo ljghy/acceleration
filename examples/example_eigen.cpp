@@ -17,12 +17,11 @@ int main() {
   points.setRandom();
 
   {
-
     auto start = std::chrono::high_resolution_clock::now();
 
     bvh.build(nPoints, [&](int i) {
-      return acc::BoundingBox(points.row(i).array() - 1e-5,
-                              points.row(i).array() + 1e-5);
+      return acc::BoundingBox{points.row(i).array() - 1e-5,
+                              points.row(i).array() + 1e-5};
     });
 
     auto end = std::chrono::high_resolution_clock::now();

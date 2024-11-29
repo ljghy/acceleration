@@ -1,7 +1,15 @@
 #ifndef ACC_MORTON_CODE_HPP_
 #define ACC_MORTON_CODE_HPP_
 
+#include <algorithm>
 #include <cstdint>
+#include <numeric>
+#include <thread>
+#include <vector>
+
+#ifndef ACC_DONT_PARALLELIZE
+#include <execution>
+#endif
 
 #include <acc/Vec3Op.hpp>
 
@@ -30,6 +38,80 @@ struct MortonCode {
   }
 
   bool operator<(const MortonCode &other) const { return code < other.code; }
+
+  static void radixSort(std::vector<MortonCode> &codes) {
+
+    auto *curr = &codes;
+    std::vector<MortonCode> swapCodes(codes.size());
+    auto *out = &swapCodes;
+
+#ifndef ACC_DONT_PARALLELIZE
+    const int parts = std::max<int>(1, std::thread::hardware_concurrency() / 2);
+#else
+    const int parts = 1;
+#endif
+    std::vector<int> partIndices(parts);
+    std::iota(partIndices.begin(), partIndices.end(), 0);
+
+    constexpr int bitsPerPass = 8;
+    constexpr int passes = 4;
+    constexpr int buckets = 1 << bitsPerPass;
+    constexpr uint32_t mask = buckets - 1;
+
+    for (int pass = 0; pass < passes; ++pass) {
+
+      std::vector<int[buckets]> count(parts);
+      for (auto &part : count)
+        std::fill(part, part + buckets, 0);
+
+      std::for_each(
+#ifndef ACC_DONT_PARALLELIZE
+          std::execution::par,
+#endif
+          partIndices.begin(), partIndices.end(), [&](const int part) {
+            const int partSize = codes.size() / parts;
+            int first = partSize * part;
+            const int last =
+                part == parts - 1 ? codes.size() : (first + partSize);
+
+            for (; first < last; ++first) {
+              const int bucket =
+                  ((*curr)[first].code >> (bitsPerPass * pass)) & mask;
+              ++count[part][bucket];
+            }
+          });
+
+      int base = 0;
+      for (int bucket = 0; bucket < buckets; ++bucket)
+        for (int part = 0; part < parts; ++part) {
+          const int c = count[part][bucket];
+          count[part][bucket] = base;
+          base += c;
+        }
+
+      std::for_each(
+#ifndef ACC_DONT_PARALLELIZE
+          std::execution::par,
+#endif
+          partIndices.begin(), partIndices.end(), [&](const int part) {
+            const int partSize = codes.size() / parts;
+            int first = partSize * part;
+            const int last =
+                part == parts - 1 ? codes.size() : (first + partSize);
+
+            for (; first < last; ++first) {
+              const int bucket =
+                  ((*curr)[first].code >> (bitsPerPass * pass)) & mask;
+              (*out)[count[part][bucket]++] = (*curr)[first];
+            }
+          });
+
+      std::swap(curr, out);
+    }
+
+    if (curr != &codes)
+      curr->swap(codes);
+  }
 };
 
 } // namespace acc

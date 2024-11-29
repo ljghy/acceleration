@@ -95,11 +95,7 @@ std::vector<BVHNodeType> MortonCodeBVHBuilder::build(const index_t n,
                                   inv(rootAABB.ub - rootAABB.lb)));
       });
 
-  std::sort(
-#ifndef ACC_DONT_PARALLELIZE
-      std::execution::par,
-#endif
-      m_mortonCodes.begin(), m_mortonCodes.end());
+  MortonCode::radixSort(m_mortonCodes);
 
   nodes.emplace_back(rootAABB);
   buildRecursive(nodes, 0, n - 1);

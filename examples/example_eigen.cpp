@@ -7,6 +7,7 @@
 
 #include <acc/Query.hpp>
 #include <acc/StaticBVH.hpp>
+#include <acc/TriUtils.hpp>
 
 int main() {
 
@@ -27,9 +28,10 @@ int main() {
     auto end = std::chrono::high_resolution_clock::now();
 
     std::cout << "BVH built in "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+              << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                        start)
-                     .count()
+                         .count() *
+                     1e-3
               << " ms for " << nPoints << " points" << std::endl;
 
     std::cout << "BVH depth: " << bvh.maxDepth() << std::endl;
@@ -44,16 +46,18 @@ int main() {
 
     tbb::parallel_for<int>(0, nQueries, [&](int i) {
       acc::nearestObject(
-          bvh.numNodes(), bvh.data(), queries.row(i),
-          [&](const int j) { return (points.row(j) - queries.row(i)).norm(); });
+          bvh.numNodes(), bvh.data(), queries.row(i), [&](const int j) {
+            return (points.row(j) - queries.row(i)).squaredNorm();
+          });
     });
 
     auto end = std::chrono::high_resolution_clock::now();
 
     std::cout << nQueries << " nearest object queries took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end -
+              << std::chrono::duration_cast<std::chrono::microseconds>(end -
                                                                        start)
-                     .count()
+                         .count() *
+                     1e-3
               << " ms in parallel" << std::endl;
   }
 }

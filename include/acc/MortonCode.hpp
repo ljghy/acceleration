@@ -46,7 +46,10 @@ struct MortonCode {
     auto *out = &swapCodes;
 
 #ifndef ACC_DONT_PARALLELIZE
-    const int parts = std::max<int>(1, std::thread::hardware_concurrency() / 2);
+    const int parts =
+        codes.size() < 4096
+            ? 1
+            : std::max<int>(1, std::thread::hardware_concurrency() / 2);
 #else
     const int parts = 1;
 #endif
@@ -60,7 +63,7 @@ struct MortonCode {
 
     for (int pass = 0; pass < passes; ++pass) {
 
-      std::vector<int[buckets]> count(parts);
+      std::vector<index_t[buckets]> count(parts);
       for (auto &part : count)
         std::fill(part, part + buckets, 0);
 
@@ -69,9 +72,9 @@ struct MortonCode {
           std::execution::par,
 #endif
           partIndices.begin(), partIndices.end(), [&](const int part) {
-            const int partSize = codes.size() / parts;
-            int first = partSize * part;
-            const int last =
+            const index_t partSize = codes.size() / parts;
+            index_t first = partSize * part;
+            const index_t last =
                 part == parts - 1 ? codes.size() : (first + partSize);
 
             for (; first < last; ++first) {
@@ -81,10 +84,10 @@ struct MortonCode {
             }
           });
 
-      int base = 0;
+      index_t base = 0;
       for (int bucket = 0; bucket < buckets; ++bucket)
         for (int part = 0; part < parts; ++part) {
-          const int c = count[part][bucket];
+          const index_t c = count[part][bucket];
           count[part][bucket] = base;
           base += c;
         }
@@ -94,9 +97,9 @@ struct MortonCode {
           std::execution::par,
 #endif
           partIndices.begin(), partIndices.end(), [&](const int part) {
-            const int partSize = codes.size() / parts;
-            int first = partSize * part;
-            const int last =
+            const index_t partSize = codes.size() / parts;
+            index_t first = partSize * part;
+            const index_t last =
                 part == parts - 1 ? codes.size() : (first + partSize);
 
             for (; first < last; ++first) {

@@ -41,8 +41,12 @@ inline ACC_HOST_DEVICE vec3_t barycentricCoords(const vec3_t &a,
   return bc;
 }
 
+namespace internal {
+
+template <typename Norm>
 inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
-                                            const vec3_t &c, const vec3_t &p) {
+                                            const vec3_t &c, const vec3_t &p,
+                                            const Norm norm_) {
   const vec3_t ab = b - a;
   const vec3_t ac = c - a;
   const vec3_t ap = p - a;
@@ -51,7 +55,7 @@ inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
   const real_t d2 = dot(ap, ac);
 
   if (d1 <= real_t{} && d2 <= real_t{})
-    return norm(ap);
+    return norm_(ap);
 
   const vec3_t bp = p - b;
 
@@ -59,7 +63,7 @@ inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
   const real_t d4 = dot(bp, ac);
 
   if (d3 >= real_t{} && d4 <= d3)
-    return norm(bp);
+    return norm_(bp);
 
   const vec3_t cp = p - c;
 
@@ -67,30 +71,44 @@ inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
   const real_t d6 = dot(cp, ac);
 
   if (d6 >= real_t{} && d5 <= d6)
-    return norm(cp);
+    return norm_(cp);
 
   const real_t vc = d1 * d4 - d3 * d2;
   if (vc <= real_t{} && d1 >= real_t{} && d3 <= real_t{}) {
     const real_t v = d1 / (d1 - d3);
-    return norm(ap - v * ab);
+    return norm_(ap - v * ab);
   }
 
   const real_t vb = d5 * d2 - d1 * d6;
   if (vb <= real_t{} && d2 >= real_t{} && d6 <= real_t{}) {
     const real_t v = d2 / (d2 - d6);
-    return norm(ap - v * ac);
+    return norm_(ap - v * ac);
   }
 
   const real_t va = d3 * d6 - d5 * d4;
   if (va <= real_t{} && (d4 - d3) >= real_t{} && (d5 - d6) >= real_t{}) {
     const real_t v = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-    return norm(bp - v * (c - b));
+    return norm_(bp - v * (c - b));
   }
 
   const real_t denom = real_t{1.0} / (va + vb + vc);
   const real_t v = vb * denom;
   const real_t w = vc * denom;
-  return norm(ap - v * ab - w * ac);
+  return norm_(ap - v * ab - w * ac);
+}
+
+} // namespace internal
+
+inline ACC_HOST_DEVICE real_t pointDistance(const vec3_t &a, const vec3_t &b,
+                                            const vec3_t &c, const vec3_t &p) {
+  return internal::pointDistance(a, b, c, p, norm);
+}
+
+inline ACC_HOST_DEVICE real_t pointSquaredDistance(const vec3_t &a,
+                                                   const vec3_t &b,
+                                                   const vec3_t &c,
+                                                   const vec3_t &p) {
+  return internal::pointDistance(a, b, c, p, sqrNorm);
 }
 
 inline ACC_HOST_DEVICE vec3_t pointProjection(const vec3_t &a, const vec3_t &b,

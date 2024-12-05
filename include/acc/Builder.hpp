@@ -48,7 +48,7 @@ private:
   index_t buildRecursive(std::vector<BVHNodeType> &nodes, const index_t first,
                          const index_t last);
 
-  index_t findSplit(const index_t first, const index_t last);
+  index_t findSplit(const index_t first, const index_t last) const;
 
 private:
   std::vector<BoundingBox> m_aabbs;
@@ -125,7 +125,7 @@ index_t MortonCodeBVHBuilder::buildRecursive(std::vector<BVHNodeType> &nodes,
 }
 
 inline index_t MortonCodeBVHBuilder::findSplit(const index_t first,
-                                               const index_t last) {
+                                               const index_t last) const {
   const auto firstCode = m_mortonCodes[first].code;
   const auto lastCode = m_mortonCodes[last].code;
   if (firstCode == lastCode)

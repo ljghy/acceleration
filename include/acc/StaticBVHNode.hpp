@@ -9,6 +9,8 @@ struct StaticBVHNode {
   BoundingBox aabb;
   index_t children[2]{nullIndex, nullIndex};
 
+  ACC_HOST_DEVICE StaticBVHNode() = default;
+
   ACC_HOST_DEVICE StaticBVHNode(const BoundingBox &aabb)
       : aabb(aabb), children{nullIndex, nullIndex} {}
 

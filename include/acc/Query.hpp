@@ -121,14 +121,15 @@ rayHit(const index_t numNodes, const BVHNodeType *nodes, const vec3_t &o,
 
 struct NearestObjectQueryResult {
   index_t objId;
-  real_t dist;
+  real_t sqrDist;
 };
 
-template <typename Dist, typename StackType = DefaultStackType,
+template <typename SqrDist, typename StackType = DefaultStackType,
           typename BVHNodeType>
 NearestObjectQueryResult inline nearestObject(const index_t numNodes,
                                               const BVHNodeType *nodes,
-                                              const vec3_t &p, Dist dist) {
+                                              const vec3_t &p,
+                                              SqrDist sqrDist) {
 
   NearestObjectQueryResult ret{nullIndex, real_t_max};
 
@@ -145,25 +146,25 @@ NearestObjectQueryResult inline nearestObject(const index_t numNodes,
     const auto &node = nodes[i];
     const index_t objId = node.objId();
     if (!node.isLeaf()) {
-      const real_t d0 = nodes[node.children[0]].aabb.minDist(p);
-      const real_t d1 = nodes[node.children[1]].aabb.minDist(p);
+      const real_t sd0 = nodes[node.children[0]].aabb.minSqrDist(p);
+      const real_t sd1 = nodes[node.children[1]].aabb.minSqrDist(p);
 
-      if (d0 < d1) {
-        if (d1 < ret.dist)
+      if (sd0 < sd1) {
+        if (sd1 < ret.sqrDist)
           s.push(node.children[1]);
-        if (d0 < ret.dist)
+        if (sd0 < ret.sqrDist)
           s.push(node.children[0]);
       } else {
-        if (d0 < ret.dist)
+        if (sd0 < ret.sqrDist)
           s.push(node.children[0]);
-        if (d1 < ret.dist)
+        if (sd1 < ret.sqrDist)
           s.push(node.children[1]);
       }
     } else {
-      const real_t d = dist(objId);
-      if (d < ret.dist) {
+      const real_t sd = sqrDist(objId);
+      if (sd < ret.sqrDist) {
         ret.objId = objId;
-        ret.dist = d;
+        ret.sqrDist = sd;
       }
     }
   }

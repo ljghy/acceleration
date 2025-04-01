@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <numeric>
-#include <thread>
 #include <vector>
 
 #ifndef ACC_DONT_PARALLELIZE
@@ -46,10 +45,7 @@ struct MortonCode {
     auto *out = &swapCodes;
 
 #ifndef ACC_DONT_PARALLELIZE
-    const int parts =
-        codes.size() < 4096
-            ? 1
-            : std::max<int>(1, std::thread::hardware_concurrency() / 2);
+    const int parts = std::max<int>(1, codes.size() / 4096);
 #else
     const int parts = 1;
 #endif
@@ -63,9 +59,9 @@ struct MortonCode {
 
     for (int pass = 0; pass < passes; ++pass) {
 
-      std::vector<index_t[buckets]> count(parts);
+      std::vector<std::array<index_t, buckets>> count(parts);
       for (auto &part : count)
-        std::fill(part, part + buckets, 0);
+        std::fill(part.begin(), part.end(), 0);
 
       std::for_each(
 #ifndef ACC_DONT_PARALLELIZE

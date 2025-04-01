@@ -19,25 +19,39 @@ namespace acc {
 
 using vec3_t = Eigen::Matrix<real_t, 3, 1>;
 
-inline vec3_t min(const vec3_t &a, const vec3_t &b) { return a.cwiseMin(b); }
-inline vec3_t min(const vec3_t &a, const real_t b) { return a.cwiseMin(b); }
-inline real_t min(const vec3_t &a) { return a.minCoeff(); }
+inline ACC_HOST_DEVICE vec3_t min(const vec3_t &a, const vec3_t &b) {
+  return a.cwiseMin(b);
+}
+inline ACC_HOST_DEVICE vec3_t min(const vec3_t &a, const real_t b) {
+  return a.cwiseMin(b);
+}
+inline ACC_HOST_DEVICE real_t min(const vec3_t &a) { return a.minCoeff(); }
 
-inline vec3_t max(const vec3_t &a, const vec3_t &b) { return a.cwiseMax(b); }
-inline vec3_t max(const vec3_t &a, const real_t b) { return a.cwiseMax(b); }
-inline real_t max(const vec3_t &a) { return a.maxCoeff(); }
+inline ACC_HOST_DEVICE vec3_t max(const vec3_t &a, const vec3_t &b) {
+  return a.cwiseMax(b);
+}
+inline ACC_HOST_DEVICE vec3_t max(const vec3_t &a, const real_t b) {
+  return a.cwiseMax(b);
+}
+inline ACC_HOST_DEVICE real_t max(const vec3_t &a) { return a.maxCoeff(); }
 
-inline vec3_t prod(const vec3_t &a, const vec3_t &b) {
+inline ACC_HOST_DEVICE vec3_t prod(const vec3_t &a, const vec3_t &b) {
   return a.cwiseProduct(b);
 }
-inline vec3_t inv(const vec3_t &a) { return a.cwiseInverse(); }
+inline ACC_HOST_DEVICE vec3_t inv(const vec3_t &a) { return a.cwiseInverse(); }
 
-inline vec3_t abs(const vec3_t &a) { return a.cwiseAbs(); }
+inline ACC_HOST_DEVICE vec3_t abs(const vec3_t &a) { return a.cwiseAbs(); }
 
-inline real_t norm(const vec3_t &a) { return a.norm(); }
-inline real_t sqrNorm(const vec3_t &a) { return a.squaredNorm(); }
-inline real_t dot(const vec3_t &a, const vec3_t &b) { return a.dot(b); }
-inline vec3_t cross(const vec3_t &a, const vec3_t &b) { return a.cross(b); }
+inline ACC_HOST_DEVICE real_t norm(const vec3_t &a) { return a.norm(); }
+inline ACC_HOST_DEVICE real_t sqrNorm(const vec3_t &a) {
+  return a.squaredNorm();
+}
+inline ACC_HOST_DEVICE real_t dot(const vec3_t &a, const vec3_t &b) {
+  return a.dot(b);
+}
+inline ACC_HOST_DEVICE vec3_t cross(const vec3_t &a, const vec3_t &b) {
+  return a.cross(b);
+}
 
 #elif defined(ACC_BACKEND_GLM)
 
